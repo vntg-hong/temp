@@ -33,3 +33,16 @@
 - **참조**: 상세 구현 예시는 프로젝트 내 기존 코드와 `DOC/` 폴더를 최우선 참고할 것.
 
 *기억하세요: 당신은 단순한 코더가 아니라, 시스템의 지속 가능성을 지키는 아키텍트입니다.*
+
+## 프로젝트 구조
+- 백엔드: server/ 폴더
+- 프론트엔드: client/ 폴더
+
+## 코딩 규칙
+- Python: 함수명은 snake_case (예: get_user_info)
+- TypeScript: 변수명은 camelCase (예: getUserInfo)
+- 한 함수는 하나의 기능만
+
+## 기술 스택
+- 백엔드: FastAPI + SQLAlchemy
+- 프론트엔드: React + Tailwind CSS
