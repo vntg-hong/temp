@@ -9,6 +9,21 @@ interface CurrencyRowProps {
   onDelete: (id: string) => void;
 }
 
+function getCurrencySymbol(code: string): string {
+  try {
+    const parts = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: code,
+      currencyDisplay: 'narrowSymbol',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).formatToParts(0);
+    return parts.find((p) => p.type === 'currency')?.value ?? '';
+  } catch {
+    return '';
+  }
+}
+
 function formatAmount(amount: number, code: string): string {
   if (!isFinite(amount) || amount === 0) return '0';
   const decimals = ZERO_DECIMAL_CURRENCIES.has(code) ? 0 : 2;
@@ -23,6 +38,7 @@ export function CurrencyRow({ id, code, onChangeCurrency, onDelete }: CurrencyRo
   const isBase = baseCurrencyCode === code;
   const currencyInfo = CURRENCY_MAP.get(code);
   const amount = computeValue(code);
+  const symbol = getCurrencySymbol(code);
 
   // Base currency row shows raw input string; others show computed + formatted value
   const displayValue = isBase ? inputString || '0' : formatAmount(amount, code);
@@ -88,6 +104,11 @@ export function CurrencyRow({ id, code, onChangeCurrency, onDelete }: CurrencyRo
               : 'text-lg font-bold text-slate-900',
           ].join(' ')}
         >
+          {symbol && (
+            <span className={`mr-0.5 ${isBase ? 'text-blue-600' : 'text-slate-500'} font-medium`}>
+              {symbol}
+            </span>
+          )}
           {displayValue}
         </span>
         {isBase && <span className="text-blue-500 text-sm flex-shrink-0">✓</span>}
