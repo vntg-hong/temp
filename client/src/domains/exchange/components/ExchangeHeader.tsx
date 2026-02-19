@@ -17,12 +17,12 @@ export function ExchangeHeader() {
       </button>
 
       <div className="flex flex-col items-center">
-        <h1 className="text-base font-semibold text-slate-900">Exchange Calculator</h1>
+        <h1 className="text-base font-semibold text-slate-900">환율계산기</h1>
         {isLoading && (
           <span className="text-xs text-slate-400">환율 업데이트 중...</span>
         )}
         {!isLoading && ratesDate && (
-          <span className="text-xs text-slate-400">{ratesDate}</span>
+          <span className="text-xs text-slate-400">환율 갱신 시간 : {ratesDate}</span>
         )}
       </div>
 
