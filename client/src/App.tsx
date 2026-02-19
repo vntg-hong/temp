@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Activity, Zap, ArrowRight, Database, FileCode, BookOpen, Layers, Layout, Code } from 'lucide-react';
+import { Activity, Zap, ArrowRight, Database, FileCode, BookOpen, Layers, Layout, Code, Calculator } from 'lucide-react';
 import { LoadingOverlay } from './core/loading';
 import { DocumentViewer } from './components/DocumentViewer';
 import { checkDatabaseConnection } from './domains/system/api';
 import { toast } from './core/utils/toast';
+import { ExchangePage } from './domains/exchange';
 
 interface DocumentConfig {
   title: string;
   filePath: string;
 }
 
-function App() {
+function LandingPage() {
   const [connectionStatus, setConnectionStatus] = useState<'loading' | 'ok' | 'error'>('loading');
   const [documentViewer, setDocumentViewer] = useState<{
     isOpen: boolean;
@@ -47,35 +49,31 @@ function App() {
   };
 
   useEffect(() => {
-    // 백엔드 연결 확인
     const checkConnection = async () => {
       try {
-        await axios.get('http://localhost:8000/api/v1/health'); // 실제 API 경로에 맞춰 조정 필요
+        await axios.get('http://localhost:8000/api/v1/health');
         setConnectionStatus('ok');
-      } catch (err) {
+      } catch {
         setConnectionStatus('error');
       }
     };
     checkConnection();
   }, []);
 
-  // DB 연결 테스트 핸들러
   const handleDBCheck = async () => {
     try {
       const result = await checkDatabaseConnection();
       toast.success(result.message);
-    } catch (error: any) {
-      const errorMessage = error?.message || 'DB 연결 실패';
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'DB 연결 실패';
       toast.error(errorMessage);
     }
   };
 
   return (
     <>
-      {/* 전역 로딩 오버레이 */}
       <LoadingOverlay />
 
-      {/* 문서 뷰어 */}
       <DocumentViewer
         isOpen={documentViewer.isOpen}
         onClose={closeDocument}
@@ -84,7 +82,7 @@ function App() {
       />
 
       <div className="min-h-screen bg-mesh selection:bg-indigo-100">
-        {/* 1. 네비게이션 - 플로팅 스타일 */}
+        {/* 1. 네비게이션 */}
         <nav className="sticky top-0 z-50 px-6 py-4">
           <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3 bg-white/70 backdrop-blur-xl border border-white/40 rounded-2xl shadow-sm">
             <div className="flex items-center gap-2">
@@ -124,14 +122,18 @@ function App() {
                 <Database size={14} />
                 DB 연결 테스트
               </button>
-              <button className="bg-slate-900 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-slate-800 transition-all active:scale-95">
-                시작하기
-              </button>
+              <Link
+                to="/exchange"
+                className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-slate-800 transition-all active:scale-95"
+              >
+                <Calculator size={16} />
+                환율 계산기
+              </Link>
             </div>
           </div>
         </nav>
 
-        {/* 2. Hero Section - 와이드 & 클린 */}
+        {/* 2. Hero Section */}
         <section className="max-w-7xl mx-auto px-6 pt-24 pb-32 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-sm font-bold mb-8">
             <Activity size={16} />
@@ -171,10 +173,17 @@ function App() {
               프로젝트 시작하기
               <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
             </button>
+            <Link
+              to="/exchange"
+              className="w-full sm:w-auto px-10 py-4 bg-white text-slate-800 text-lg font-bold rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex items-center justify-center gap-2"
+            >
+              <Calculator size={20} />
+              환율 계산기 보기
+            </Link>
           </div>
         </section>
 
-        {/* 3. Feature Cards - 글래스모피즘 */}
+        {/* 3. Feature Cards */}
         <section className="max-w-7xl mx-auto px-6 pb-40">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="group p-8 bg-white/40 backdrop-blur-md border border-white/60 rounded-[32px] hover:bg-white/80 transition-all hover:-translate-y-2">
@@ -224,6 +233,17 @@ function App() {
         </footer>
       </div>
     </>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/exchange" element={<ExchangePage />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
