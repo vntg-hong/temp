@@ -29,11 +29,8 @@ function getCurrencySymbol(code: string): string {
 }
 
 function getAmountSizeClass(len: number, isBase: boolean): string {
-  if (isBase) {
-    if (len > 20) return 'text-base';
-    if (len > 12) return 'text-lg';
-    return 'text-xl';
-  }
+  // Base row is actively edited — keep size fixed to avoid layout jumps while typing
+  if (isBase) return 'text-xl';
   if (len > 20) return 'text-sm';
   if (len > 12) return 'text-base';
   return 'text-lg';
