@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { ChevronDown, Trash2, GripVertical } from 'lucide-react';
 import { useExchangeStore } from '../store';
 import { CURRENCY_MAP, ZERO_DECIMAL_CURRENCIES, getFlagUrl } from '../constants';
@@ -45,6 +46,23 @@ function formatAmount(amount: number, code: string): string {
   }).format(amount);
 }
 
+/** Cross-browser caret position from pointer coordinates */
+function caretAt(x: number, y: number): { node: Node; offset: number } | null {
+  if (document.caretRangeFromPoint) {
+    const r = document.caretRangeFromPoint(x, y);
+    if (r) return { node: r.startContainer, offset: r.startOffset };
+  }
+  // Firefox (standard API)
+  const docAny = document as Document & {
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+  };
+  if (docAny.caretPositionFromPoint) {
+    const p = docAny.caretPositionFromPoint(x, y);
+    if (p) return { node: p.offsetNode, offset: p.offset };
+  }
+  return null;
+}
+
 export function CurrencyRow({
   id,
   code,
@@ -55,7 +73,8 @@ export function CurrencyRow({
   onGripPointerMove,
   onGripPointerUp,
 }: CurrencyRowProps) {
-  const { baseCurrencyCode, setBaseCurrency, computeValue, inputString } = useExchangeStore();
+  const { baseCurrencyCode, setBaseCurrency, computeValue, inputString, cursorPos, setCursorPos } =
+    useExchangeStore();
   const isBase = baseCurrencyCode === code;
   const currencyInfo = CURRENCY_MAP.get(code);
   const amount = computeValue(code);
@@ -64,6 +83,48 @@ export function CurrencyRow({
   // Base currency row shows raw input string; others show computed + formatted value
   const displayValue = isBase ? inputString || '0' : formatAmount(amount, code);
   const sizeClass = getAmountSizeClass(displayValue.length, isBase || isDragging);
+
+  // Cursor position clamped to actual string length
+  const clampedCursor = Math.min(cursorPos, inputString.length);
+
+  const amountSpanRef = useRef<HTMLSpanElement>(null);
+
+  /**
+   * On tap/click in the base row amount area, calculate which character position
+   * was tapped using the browser's caret-from-point API, then move the cursor there.
+   */
+  const handleAmountClick = (e: React.MouseEvent<HTMLSpanElement>) => {
+    e.stopPropagation();
+    if (!inputString) return; // placeholder '0' — leave cursor at 0
+
+    const caret = caretAt(e.clientX, e.clientY);
+    if (!caret || !amountSpanRef.current) return;
+
+    // Walk all text nodes inside the span, accumulating character count
+    // until we reach the tapped text node, then add the in-node offset.
+    const walker = document.createTreeWalker(amountSpanRef.current, NodeFilter.SHOW_TEXT);
+    let totalChars = 0;
+    let found = false;
+
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (node === caret.node) {
+        totalChars += caret.offset;
+        found = true;
+        break;
+      }
+      totalChars += node.length;
+    }
+
+    if (!found) {
+      // Tapped past the last character
+      totalChars = symbol.length + inputString.length;
+    }
+
+    // The symbol prefix is not part of inputString, so subtract its length
+    const newPos = Math.max(0, Math.min(totalChars - symbol.length, inputString.length));
+    setCursorPos(newPos);
+  };
 
   return (
     <div
@@ -127,8 +188,11 @@ export function CurrencyRow({
       {/* Converted amount */}
       <div className="flex-1 flex items-center gap-1.5 min-w-0">
         <span
+          ref={amountSpanRef}
+          onClick={isBase && !isDragging ? handleAmountClick : undefined}
           className={[
             'flex-1 min-w-0 tabular-nums break-all text-right',
+            isBase && !isDragging ? 'cursor-text' : '',
             sizeClass,
             isBase || isDragging ? 'font-extrabold text-blue-900' : 'font-bold text-slate-900',
           ].join(' ')}
@@ -140,7 +204,21 @@ export function CurrencyRow({
               {symbol}
             </span>
           )}
-          {displayValue}
+
+          {/* Base row: render text split by cursor position */}
+          {isBase && inputString ? (
+            <>
+              {inputString.slice(0, clampedCursor)}
+              <span
+                aria-hidden
+                className="inline-block w-[2px] rounded-sm bg-blue-500 animate-pulse align-text-bottom"
+                style={{ height: '0.85em' }}
+              />
+              {inputString.slice(clampedCursor)}
+            </>
+          ) : (
+            displayValue
+          )}
         </span>
         {isBase && !isDragging && <span className="text-blue-500 text-sm flex-shrink-0">✓</span>}
       </div>

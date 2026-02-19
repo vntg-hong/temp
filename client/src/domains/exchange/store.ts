@@ -43,6 +43,7 @@ interface ExchangeState {
   currencies: CurrencyEntry[];
   baseCurrencyCode: string;
   inputString: string;
+  cursorPos: number;
   rates: Record<string, number>;
   ratesDate: string | null;
   isOffline: boolean;
@@ -58,6 +59,7 @@ interface ExchangeState {
   appendParenthesis: () => void;
   clearInput: () => void;
   backspace: () => void;
+  setCursorPos: (pos: number) => void;
   swapWithBase: () => void;
   addCurrency: (code: string) => void;
   removeCurrency: (id: string) => void;
@@ -72,6 +74,7 @@ export const useExchangeStore = create<ExchangeState>()(
       currencies: DEFAULT_CURRENCIES.map((code) => ({ id: generateId(), code })),
       baseCurrencyCode: DEFAULT_CURRENCIES[0],
       inputString: '',
+      cursorPos: 0,
       rates: {},
       ratesDate: null,
       isOffline: false,
@@ -104,71 +107,92 @@ export const useExchangeStore = create<ExchangeState>()(
             }
           }
 
-          return { baseCurrencyCode: code, inputString: newInput };
+          return { baseCurrencyCode: code, inputString: newInput, cursorPos: newInput.length };
         });
       },
 
       appendDigit: (digit: string) => {
         set((state) => {
-          const current = state.inputString;
+          const { inputString: current, cursorPos } = state;
 
-          if (digit === '.') {
-            // Find start of current number segment (after last operator)
-            const lastOp = Math.max(
-              current.lastIndexOf('+'),
-              current.lastIndexOf('-'),
-              current.lastIndexOf('×'),
-              current.lastIndexOf('÷'),
-            );
-            const segment = current.slice(lastOp + 1);
-            if (segment.includes('.')) return {};
-          }
-
-          // Prevent leading zeros like "007"
-          if (digit !== '.' && current === '0') {
-            return { inputString: digit };
-          }
-
-          // Limit input length to prevent overflow
           if (current.length >= 20) return {};
 
-          return { inputString: current + digit };
+          const before = current.slice(0, cursorPos);
+          const after = current.slice(cursorPos);
+
+          if (digit === '.') {
+            // Check the number segment around the cursor for an existing decimal
+            const lastOpBefore = Math.max(
+              before.lastIndexOf('+'), before.lastIndexOf('-'),
+              before.lastIndexOf('×'), before.lastIndexOf('÷'), before.lastIndexOf('('),
+            );
+            const segBefore = before.slice(lastOpBefore + 1);
+            const nextOpAfterIdx = after.search(/[+\-×÷()]/);
+            const segAfter = nextOpAfterIdx >= 0 ? after.slice(0, nextOpAfterIdx) : after;
+            if (segBefore.includes('.') || segAfter.includes('.')) return {};
+          }
+
+          // Prevent leading zeros like "007": if entire input is '0', replace it
+          if (digit !== '.' && current === '0') {
+            return { inputString: digit, cursorPos: 1 };
+          }
+
+          return { inputString: before + digit + after, cursorPos: cursorPos + 1 };
         });
       },
 
       appendOperator: (op: Operator) => {
         set((state) => {
-          const current = state.inputString;
+          const { inputString: current, cursorPos } = state;
           if (!current) return {};
-          // Replace trailing operator
-          if (/[+\-×÷]$/.test(current)) {
-            return { inputString: current.slice(0, -1) + op };
+
+          const before = current.slice(0, cursorPos);
+          const after = current.slice(cursorPos);
+
+          // Don't insert operator at the very start
+          if (!before) return {};
+
+          // Replace operator immediately before cursor
+          if (/[+\-×÷]$/.test(before)) {
+            return { inputString: before.slice(0, -1) + op + after, cursorPos };
           }
-          return { inputString: current + op };
+
+          return { inputString: before + op + after, cursorPos: cursorPos + 1 };
         });
       },
 
       appendParenthesis: () => {
         set((state) => {
-          const current = state.inputString;
+          const { inputString: current, cursorPos } = state;
           if (current.length >= 20) return {};
+
+          const before = current.slice(0, cursorPos);
+          const after = current.slice(cursorPos);
+
           const openCount = (current.match(/\(/g) || []).length;
           const closeCount = (current.match(/\)/g) || []).length;
           const unclosed = openCount - closeCount;
-          // Close if there are unclosed parens and last char is digit, dot, or ')'
-          if (unclosed > 0 && /[\d.)]$/.test(current)) {
-            return { inputString: current + ')' };
-          }
-          return { inputString: current + '(' };
+
+          // Close if unclosed parens exist and char before cursor is digit, dot, or ')'
+          const paren = unclosed > 0 && /[\d.)]$/.test(before) ? ')' : '(';
+          return { inputString: before + paren + after, cursorPos: cursorPos + 1 };
         });
       },
 
-      clearInput: () => set({ inputString: '' }),
+      clearInput: () => set({ inputString: '', cursorPos: 0 }),
 
       backspace: () => {
-        set((state) => ({
-          inputString: state.inputString.slice(0, -1),
-        }));
+        set((state) => {
+          const { inputString: current, cursorPos } = state;
+          if (cursorPos === 0) return {};
+          const before = current.slice(0, cursorPos - 1);
+          const after = current.slice(cursorPos);
+          return { inputString: before + after, cursorPos: cursorPos - 1 };
+        });
+      },
+
+      setCursorPos: (pos: number) => {
+        set((state) => ({ cursorPos: Math.max(0, Math.min(pos, state.inputString.length)) }));
       },
 
       swapWithBase: () => {
