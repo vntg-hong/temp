@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useExchangeStore } from '../store';
-import { CURRENCY_MAP, ZERO_DECIMAL_CURRENCIES } from '../constants';
+import { CURRENCY_MAP, ZERO_DECIMAL_CURRENCIES, getFlagUrl } from '../constants';
 
 interface CurrencyRowProps {
   id: string;
@@ -106,23 +106,33 @@ export function CurrencyRow({ id, code, onChangeCurrency, onDelete }: CurrencyRo
       >
         {/* Left: flag + currency code dropdown */}
         <div className="flex items-center gap-3 min-w-0">
-          <span className="text-2xl flex-shrink-0" role="img" aria-label={code}>
-            {currencyInfo?.flag ?? '🏳'}
-          </span>
+          <img
+            src={getFlagUrl(code, 40)}
+            alt={`${code} flag`}
+            className="w-9 h-6 rounded object-cover flex-shrink-0 shadow-sm"
+            onError={(e) => {
+              e.currentTarget.src = 'https://flagcdn.com/w40/un.png';
+            }}
+          />
           <button
-            className="flex items-center gap-1 flex-shrink-0"
+            className="flex flex-col items-start min-w-0"
             onClick={(e) => {
               e.stopPropagation();
               onChangeCurrency(id);
             }}
             aria-label={`${code} 변경`}
           >
-            <span
-              className={`text-sm font-semibold ${isBase ? 'text-blue-700' : 'text-slate-800'}`}
-            >
-              {code}
+            <div className="flex items-center gap-1">
+              <span
+                className={`text-sm font-semibold ${isBase ? 'text-blue-700' : 'text-slate-800'}`}
+              >
+                {code}
+              </span>
+              <ChevronDown size={12} className="text-slate-400" />
+            </div>
+            <span className="text-xs text-slate-400 truncate max-w-[120px]">
+              {currencyInfo?.nameKo || currencyInfo?.name}
             </span>
-            <ChevronDown size={12} className="text-slate-400" />
           </button>
         </div>
 
