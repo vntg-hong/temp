@@ -10,13 +10,17 @@ function generateId(): string {
   return Math.random().toString(36).substring(2, 11);
 }
 
-/** Safely evaluates a math expression string (digits + operators only) */
+/** Safely evaluates a math expression string (digits + operators + parentheses) */
 function evaluateInput(input: string): number {
   if (!input) return 0;
-  const cleaned = input.replace(/[+\-×÷]$/, '');
+  // Remove trailing operators and lone opening parens
+  const cleaned = input.replace(/[+\-×÷(]+$/, '');
   if (!cleaned) return 0;
-  const jsExpr = cleaned.replace(/×/g, '*').replace(/÷/g, '/');
-  if (!/^[\d.+\-*/]+$/.test(jsExpr)) return 0;
+  let jsExpr = cleaned.replace(/×/g, '*').replace(/÷/g, '/');
+  if (!/^[\d.+\-*/()]+$/.test(jsExpr)) return 0;
+  // Auto-close unclosed parentheses
+  const unclosed = (jsExpr.match(/\(/g) || []).length - (jsExpr.match(/\)/g) || []).length;
+  if (unclosed > 0) jsExpr += ')'.repeat(unclosed);
   try {
     // eslint-disable-next-line no-new-func
     const result = Function(`"use strict"; return (${jsExpr})`)() as number;
@@ -51,6 +55,7 @@ interface ExchangeState {
   setBaseCurrency: (code: string) => void;
   appendDigit: (digit: string) => void;
   appendOperator: (op: Operator) => void;
+  appendParenthesis: () => void;
   clearInput: () => void;
   backspace: () => void;
   swapWithBase: () => void;
@@ -140,6 +145,21 @@ export const useExchangeStore = create<ExchangeState>()(
             return { inputString: current.slice(0, -1) + op };
           }
           return { inputString: current + op };
+        });
+      },
+
+      appendParenthesis: () => {
+        set((state) => {
+          const current = state.inputString;
+          if (current.length >= 20) return {};
+          const openCount = (current.match(/\(/g) || []).length;
+          const closeCount = (current.match(/\)/g) || []).length;
+          const unclosed = openCount - closeCount;
+          // Close if there are unclosed parens and last char is digit, dot, or ')'
+          if (unclosed > 0 && /[\d.)]$/.test(current)) {
+            return { inputString: current + ')' };
+          }
+          return { inputString: current + '(' };
         });
       },
 

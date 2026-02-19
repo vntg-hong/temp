@@ -48,7 +48,15 @@ export async function fetchLatestRates(): Promise<FetchRatesResult> {
   if (data.result !== 'success') throw new Error('API returned non-success result');
 
   const rates: Record<string, number> = data.rates;
-  const date = new Date(data.time_last_update_unix * 1000).toISOString().split('T')[0];
+  const d = new Date(data.time_last_update_unix * 1000);
+  const date = d.toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
 
   saveCache({ base: 'USD', date, rates });
 

@@ -41,24 +41,14 @@ function KeyButton({
 }
 
 export function NumericKeypad() {
-  const { appendDigit, appendOperator, clearInput, backspace, swapWithBase } = useExchangeStore();
+  const { appendDigit, appendOperator, appendParenthesis, clearInput, backspace, swapWithBase } = useExchangeStore();
 
   const keys: (KeyConfig & { height?: string })[] = [
-    // Row 1: C (span-2) and ⇄ (span-2)
-    {
-      label: 'C',
-      action: clearInput,
-      variant: 'clear',
-      colSpan: 2,
-      height: 'h-12',
-    },
-    {
-      label: '⇄',
-      action: swapWithBase,
-      variant: 'swap',
-      colSpan: 2,
-      height: 'h-12',
-    },
+    // Row 1: C  ()  ⇄  ⌫
+    { label: 'C', action: clearInput, variant: 'clear', height: 'h-12' },
+    { label: '( )', action: appendParenthesis, variant: 'function', height: 'h-12' },
+    { label: '⇄', action: swapWithBase, variant: 'swap', height: 'h-12' },
+    { label: <Delete size={20} />, action: backspace, variant: 'function', height: 'h-12' },
 
     // Row 2: 7 8 9 +
     { label: '7', action: () => appendDigit('7'), variant: 'number' },
