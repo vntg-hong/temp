@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { ChevronDown, Trash2, GripVertical } from 'lucide-react';
+import { ChevronDown, Trash2, GripVertical, Calculator } from 'lucide-react';
 import { useExchangeStore } from '../store';
 import { CURRENCY_MAP, ZERO_DECIMAL_CURRENCIES, getFlagUrl } from '../constants';
 
@@ -31,7 +31,7 @@ function getCurrencySymbol(code: string): string {
 
 function getAmountSizeClass(len: number, isBase: boolean): string {
   // Base row is actively edited — keep size fixed to avoid layout jumps while typing
-  if (isBase) return 'text-xl';
+  if (isBase) return 'text-lg';
   if (len > 20) return 'text-sm';
   if (len > 12) return 'text-base';
   return 'text-lg';
@@ -73,7 +73,7 @@ export function CurrencyRow({
   onGripPointerMove,
   onGripPointerUp,
 }: CurrencyRowProps) {
-  const { baseCurrencyCode, setBaseCurrency, computeValue, inputString, cursorPos, setCursorPos } =
+  const { baseCurrencyCode, setBaseCurrency, computeValue, inputString, cursorPos, setCursorPos, openCalc } =
     useExchangeStore();
   const isBase = baseCurrencyCode === code;
   const currencyInfo = CURRENCY_MAP.get(code);
@@ -220,7 +220,21 @@ export function CurrencyRow({
             displayValue
           )}
         </span>
-        {isBase && !isDragging && <span className="text-blue-500 text-sm flex-shrink-0">✓</span>}
+        {isBase && !isDragging && (
+          <>
+            <span className="text-blue-500 text-sm flex-shrink-0">✓</span>
+            <button
+              className="flex-shrink-0 p-1 rounded-lg text-slate-400 hover:text-blue-500 active:bg-blue-50 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                openCalc();
+              }}
+              aria-label="계산기 열기"
+            >
+              <Calculator size={17} />
+            </button>
+          </>
+        )}
       </div>
 
       {/* Drag grip handle */}

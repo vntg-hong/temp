@@ -4,6 +4,7 @@ import { ExchangeHeader } from '../components/ExchangeHeader';
 import { StatusBar } from '../components/StatusBar';
 import { CurrencyList } from '../components/CurrencyList';
 import { NumericKeypad } from '../components/NumericKeypad';
+import { CalculatorModal } from '../components/CalculatorModal';
 
 export function ExchangePage() {
   const { loadRates, isOffline, ratesDate } = useExchangeStore();
@@ -21,6 +22,7 @@ export function ExchangePage() {
         <CurrencyList />
         <NumericKeypad />
       </div>
+      <CalculatorModal />
     </div>
   );
 }

@@ -44,6 +44,10 @@ interface ExchangeState {
   baseCurrencyCode: string;
   inputString: string;
   cursorPos: number;
+  // Calculator modal state
+  isCalcOpen: boolean;
+  calcExpression: string;
+  calcCursorPos: number;
   rates: Record<string, number>;
   ratesDate: string | null;
   isOffline: boolean;
@@ -51,6 +55,7 @@ interface ExchangeState {
 
   // Selectors
   computeValue: (code: string) => number;
+  computeCalcValue: () => number;
 
   // Actions
   setBaseCurrency: (code: string) => void;
@@ -60,6 +65,16 @@ interface ExchangeState {
   clearInput: () => void;
   backspace: () => void;
   setCursorPos: (pos: number) => void;
+  // Calculator modal actions
+  openCalc: () => void;
+  closeCalc: () => void;
+  confirmCalc: () => void;
+  calcAppendDigit: (digit: string) => void;
+  calcAppendOperator: (op: Operator) => void;
+  calcAppendParenthesis: () => void;
+  calcBackspace: () => void;
+  calcClear: () => void;
+  setCalcCursorPos: (pos: number) => void;
   swapWithBase: () => void;
   addCurrency: (code: string) => void;
   removeCurrency: (id: string) => void;
@@ -75,10 +90,15 @@ export const useExchangeStore = create<ExchangeState>()(
       baseCurrencyCode: DEFAULT_CURRENCIES[0],
       inputString: '',
       cursorPos: 0,
+      isCalcOpen: false,
+      calcExpression: '',
+      calcCursorPos: 0,
       rates: {},
       ratesDate: null,
       isOffline: false,
       isLoading: false,
+
+      computeCalcValue: () => evaluateInput(get().calcExpression),
 
       computeValue: (code: string) => {
         const { rates, baseCurrencyCode, inputString } = get();
@@ -193,6 +213,104 @@ export const useExchangeStore = create<ExchangeState>()(
 
       setCursorPos: (pos: number) => {
         set((state) => ({ cursorPos: Math.max(0, Math.min(pos, state.inputString.length)) }));
+      },
+
+      // ── Calculator modal ───────────────────────────────────────────────────
+
+      openCalc: () => {
+        set((state) => {
+          // Seed from inputString only when there is no previous calc expression
+          const expr = state.calcExpression || state.inputString;
+          return { isCalcOpen: true, calcExpression: expr, calcCursorPos: expr.length };
+        });
+      },
+
+      closeCalc: () => set({ isCalcOpen: false }),
+
+      confirmCalc: () => {
+        set((state) => {
+          const result = evaluateInput(state.calcExpression);
+          const resultStr = result === 0 ? '' : String(result);
+          return {
+            isCalcOpen: false,
+            inputString: resultStr,
+            cursorPos: resultStr.length,
+            // Keep calcExpression so the user can resume the same expression later
+          };
+        });
+      },
+
+      calcAppendDigit: (digit: string) => {
+        set((state) => {
+          const { calcExpression: current, calcCursorPos: cursorPos } = state;
+          if (current.length >= 20) return {};
+
+          const before = current.slice(0, cursorPos);
+          const after = current.slice(cursorPos);
+
+          if (digit === '.') {
+            const lastOpBefore = Math.max(
+              before.lastIndexOf('+'), before.lastIndexOf('-'),
+              before.lastIndexOf('×'), before.lastIndexOf('÷'), before.lastIndexOf('('),
+            );
+            const segBefore = before.slice(lastOpBefore + 1);
+            const nextOpAfterIdx = after.search(/[+\-×÷()]/);
+            const segAfter = nextOpAfterIdx >= 0 ? after.slice(0, nextOpAfterIdx) : after;
+            if (segBefore.includes('.') || segAfter.includes('.')) return {};
+          }
+
+          if (digit !== '.' && current === '0') {
+            return { calcExpression: digit, calcCursorPos: 1 };
+          }
+
+          return { calcExpression: before + digit + after, calcCursorPos: cursorPos + 1 };
+        });
+      },
+
+      calcAppendOperator: (op: Operator) => {
+        set((state) => {
+          const { calcExpression: current, calcCursorPos: cursorPos } = state;
+          if (!current) return {};
+          const before = current.slice(0, cursorPos);
+          const after = current.slice(cursorPos);
+          if (!before) return {};
+          if (/[+\-×÷]$/.test(before)) {
+            return { calcExpression: before.slice(0, -1) + op + after, calcCursorPos: cursorPos };
+          }
+          return { calcExpression: before + op + after, calcCursorPos: cursorPos + 1 };
+        });
+      },
+
+      calcAppendParenthesis: () => {
+        set((state) => {
+          const { calcExpression: current, calcCursorPos: cursorPos } = state;
+          if (current.length >= 20) return {};
+          const before = current.slice(0, cursorPos);
+          const after = current.slice(cursorPos);
+          const openCount = (current.match(/\(/g) || []).length;
+          const closeCount = (current.match(/\)/g) || []).length;
+          const unclosed = openCount - closeCount;
+          const paren = unclosed > 0 && /[\d.)]$/.test(before) ? ')' : '(';
+          return { calcExpression: before + paren + after, calcCursorPos: cursorPos + 1 };
+        });
+      },
+
+      calcBackspace: () => {
+        set((state) => {
+          const { calcExpression: current, calcCursorPos: cursorPos } = state;
+          if (cursorPos === 0) return {};
+          const before = current.slice(0, cursorPos - 1);
+          const after = current.slice(cursorPos);
+          return { calcExpression: before + after, calcCursorPos: cursorPos - 1 };
+        });
+      },
+
+      calcClear: () => set({ calcExpression: '', calcCursorPos: 0 }),
+
+      setCalcCursorPos: (pos: number) => {
+        set((state) => ({
+          calcCursorPos: Math.max(0, Math.min(pos, state.calcExpression.length)),
+        }));
       },
 
       swapWithBase: () => {
