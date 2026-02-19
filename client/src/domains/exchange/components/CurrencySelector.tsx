@@ -59,7 +59,7 @@ export function CurrencySelector({ isOpen, mode, targetId, onClose }: CurrencySe
       />
 
       {/* Bottom Sheet */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm z-50 bg-white rounded-t-3xl flex flex-col min-h-[50vh] max-h-[80vh] shadow-2xl">
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-sm z-50 bg-white rounded-t-3xl flex flex-col h-[80vh] shadow-2xl">
         {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
           <div className="w-10 h-1 bg-slate-300 rounded-full" />
