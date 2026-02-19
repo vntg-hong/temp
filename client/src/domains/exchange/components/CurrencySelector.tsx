@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Search } from 'lucide-react';
 import { useExchangeStore } from '../store';
-import { CURRENCIES } from '../constants';
+import { CURRENCIES, getFlagUrl } from '../constants';
 
 interface CurrencySelectorProps {
   isOpen: boolean;
@@ -110,9 +110,14 @@ export function CurrencySelector({ isOpen, mode, targetId, onClose }: CurrencySe
                     : 'hover:bg-slate-50 active:bg-slate-100',
                 ].join(' ')}
               >
-                <span className="text-2xl flex-shrink-0" role="img" aria-label={currency.code}>
-                  {currency.flag}
-                </span>
+                <img
+                  src={getFlagUrl(currency.code, 40)}
+                  alt={`${currency.code} flag`}
+                  className="w-9 h-6 rounded object-cover flex-shrink-0 shadow-sm"
+                  onError={(e) => {
+                    e.currentTarget.src = 'https://flagcdn.com/w40/un.png';
+                  }}
+                />
                 <div className="flex-1 min-w-0">
                   <span
                     className={`text-sm font-bold ${isCurrentTarget ? 'text-blue-700' : 'text-slate-800'}`}

@@ -43,3 +43,48 @@ export const ZERO_DECIMAL_CURRENCIES = new Set(['JPY', 'KRW', 'IDR', 'HUF', 'ISK
 
 /** Default currency rows shown on first launch */
 export const DEFAULT_CURRENCIES = ['USD', 'KRW', 'EUR', 'JPY', 'GBP', 'CNY'];
+
+/** Currency code to country/region code mapping for flag images */
+export const CURRENCY_FLAG_MAP: Record<string, string> = {
+  USD: 'us',
+  EUR: 'eu',
+  KRW: 'kr',
+  JPY: 'jp',
+  GBP: 'gb',
+  CNY: 'cn',
+  HKD: 'hk',
+  SGD: 'sg',
+  AUD: 'au',
+  CAD: 'ca',
+  CHF: 'ch',
+  NZD: 'nz',
+  SEK: 'se',
+  NOK: 'no',
+  DKK: 'dk',
+  INR: 'in',
+  THB: 'th',
+  IDR: 'id',
+  MYR: 'my',
+  PHP: 'ph',
+  BRL: 'br',
+  MXN: 'mx',
+  ZAR: 'za',
+  TRY: 'tr',
+  HUF: 'hu',
+  PLN: 'pl',
+  CZK: 'cz',
+  ILS: 'il',
+  RON: 'ro',
+  BGN: 'bg',
+  ISK: 'is',
+};
+
+/**
+ * Get flag image URL from flagcdn.com
+ * @param code - Currency code (e.g., 'USD')
+ * @param size - Image width (default: 40px)
+ */
+export function getFlagUrl(code: string, size = 40): string {
+  const countryCode = CURRENCY_FLAG_MAP[code] || 'un';
+  return `https://flagcdn.com/w${size}/${countryCode}.png`;
+}
