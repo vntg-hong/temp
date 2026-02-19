@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { X, Delete } from 'lucide-react';
 import { useExchangeStore } from '../store';
 
@@ -66,9 +66,17 @@ export function CalculatorModal() {
     calcBackspace,
     calcClear,
     setCalcCursorPos,
+    calcError,
   } = useExchangeStore();
 
   const exprRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom of expression when it changes
+  useEffect(() => {
+    if (exprRef.current) {
+      exprRef.current.scrollTop = exprRef.current.scrollHeight;
+    }
+  }, [calcExpression, calcCursorPos]);
 
   if (!isCalcOpen) return null;
 
@@ -152,11 +160,16 @@ export function CalculatorModal() {
         </div>
 
         {/* Expression display */}
-        <div className="px-4 py-3 flex flex-col items-end">
+        <div className="px-4 py-3 flex flex-col items-end relative">
+          {calcError && (
+            <div className="absolute top-0 right-4 text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full animate-bounce shadow-sm z-10">
+              {calcError}
+            </div>
+          )}
           <div
             ref={exprRef}
             onClick={handleExprClick}
-            className="w-full text-right text-3xl font-extrabold text-slate-900 cursor-text tabular-nums break-all leading-snug min-h-[2.5rem]"
+            className="w-full text-right text-2xl font-extrabold text-slate-900 cursor-text tabular-nums break-all leading-snug min-h-[2rem] max-h-[6.2rem] overflow-y-auto"
           >
             {calcExpression ? (
               <>

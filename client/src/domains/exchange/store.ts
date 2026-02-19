@@ -48,6 +48,7 @@ interface ExchangeState {
   isCalcOpen: boolean;
   calcExpression: string;
   calcCursorPos: number;
+  calcError: string | null;
   rates: Record<string, number>;
   ratesDate: string | null;
   isOffline: boolean;
@@ -75,6 +76,7 @@ interface ExchangeState {
   calcBackspace: () => void;
   calcClear: () => void;
   setCalcCursorPos: (pos: number) => void;
+  setCalcError: (msg: string | null) => void;
   swapWithBase: () => void;
   addCurrency: (code: string) => void;
   removeCurrency: (id: string) => void;
@@ -93,6 +95,7 @@ export const useExchangeStore = create<ExchangeState>()(
       isCalcOpen: false,
       calcExpression: '',
       calcCursorPos: 0,
+      calcError: null,
       rates: {},
       ratesDate: null,
       isOffline: false,
@@ -135,7 +138,7 @@ export const useExchangeStore = create<ExchangeState>()(
         set((state) => {
           const { inputString: current, cursorPos } = state;
 
-          if (current.length >= 20) return {};
+          if (current.length >= 1000) return {};
 
           const before = current.slice(0, cursorPos);
           const after = current.slice(cursorPos);
@@ -184,7 +187,7 @@ export const useExchangeStore = create<ExchangeState>()(
       appendParenthesis: () => {
         set((state) => {
           const { inputString: current, cursorPos } = state;
-          if (current.length >= 20) return {};
+          if (current.length >= 1000) return {};
 
           const before = current.slice(0, cursorPos);
           const after = current.slice(cursorPos);
@@ -225,7 +228,7 @@ export const useExchangeStore = create<ExchangeState>()(
         });
       },
 
-      closeCalc: () => set({ isCalcOpen: false }),
+      closeCalc: () => set({ isCalcOpen: false, calcError: null }),
 
       confirmCalc: () => {
         set((state) => {
@@ -243,7 +246,10 @@ export const useExchangeStore = create<ExchangeState>()(
       calcAppendDigit: (digit: string) => {
         set((state) => {
           const { calcExpression: current, calcCursorPos: cursorPos } = state;
-          if (current.length >= 20) return {};
+          if (current.length >= 1000) {
+            get().setCalcError('계산은 1000자를 넘을 수 없습니다.');
+            return {};
+          }
 
           const before = current.slice(0, cursorPos);
           const after = current.slice(cursorPos);
@@ -284,7 +290,10 @@ export const useExchangeStore = create<ExchangeState>()(
       calcAppendParenthesis: () => {
         set((state) => {
           const { calcExpression: current, calcCursorPos: cursorPos } = state;
-          if (current.length >= 20) return {};
+          if (current.length >= 1000) {
+            get().setCalcError('계산은 1000자를 넘을 수 없습니다.');
+            return {};
+          }
           const before = current.slice(0, cursorPos);
           const after = current.slice(cursorPos);
           const openCount = (current.match(/\(/g) || []).length;
@@ -311,6 +320,15 @@ export const useExchangeStore = create<ExchangeState>()(
         set((state) => ({
           calcCursorPos: Math.max(0, Math.min(pos, state.calcExpression.length)),
         }));
+      },
+
+      setCalcError: (msg: string | null) => {
+        set({ calcError: msg });
+        if (msg) {
+          setTimeout(() => {
+            if (get().calcError === msg) set({ calcError: null });
+          }, 3000);
+        }
       },
 
       swapWithBase: () => {

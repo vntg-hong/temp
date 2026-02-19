@@ -240,7 +240,8 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<ExchangePage />} />
+        <Route path="/vibe" element={<LandingPage />} />
         <Route path="/exchange" element={<ExchangePage />} />
       </Routes>
     </BrowserRouter>
