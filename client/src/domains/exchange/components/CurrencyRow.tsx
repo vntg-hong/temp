@@ -172,9 +172,8 @@ export function CurrencyRow({
       >
         <div className="flex items-center gap-1">
           <span
-            className={`text-sm font-semibold ${
-              isDragging ? 'text-blue-700' : isBase ? 'text-blue-700' : 'text-slate-800'
-            }`}
+            className={`text-sm font-semibold ${isDragging ? 'text-blue-700' : isBase ? 'text-blue-700' : 'text-slate-800'
+              }`}
           >
             {code}
           </span>
@@ -222,7 +221,6 @@ export function CurrencyRow({
         </span>
         {isBase && !isDragging && (
           <>
-            <span className="text-blue-500 text-sm flex-shrink-0">✓</span>
             <button
               className="flex-shrink-0 p-1 rounded-lg text-slate-400 hover:text-blue-500 active:bg-blue-50 transition-colors"
               onClick={(e) => {
