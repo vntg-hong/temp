@@ -50,6 +50,7 @@ export async function fetchLatestRates(): Promise<FetchRatesResult> {
   const rates: Record<string, number> = data.rates;
   const d = new Date(data.time_last_update_unix * 1000);
   const date = d.toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
