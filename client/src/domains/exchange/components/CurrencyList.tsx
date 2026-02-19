@@ -21,6 +21,7 @@ export function CurrencyList() {
   const { currencies, removeCurrency, reorderCurrency } = useExchangeStore();
   const listRef = useRef<HTMLDivElement>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pointerStartYRef = useRef(0);
   const [dragState, setDragState] = useState<DragState | null>(null);
 
   const [selector, setSelector] = useState<SelectorState>({
@@ -53,18 +54,19 @@ export function CurrencyList() {
 
   const handleGripPointerDown = (e: React.PointerEvent, entryId: string) => {
     cancelLongPress();
+    pointerStartYRef.current = e.clientY;
     const index = currencies.findIndex((c) => c.id === entryId);
     longPressTimerRef.current = setTimeout(() => {
       longPressTimerRef.current = null;
       navigator.vibrate?.(40);
       setDragState({ fromIndex: index, overIndex: index });
-    }, 400);
+    }, 300);
   };
 
   const handleGripPointerMove = (e: React.PointerEvent) => {
-    // Cancel long press if user moves before it triggers
+    // Cancel long press only if moved significantly (> 8px)
     if (dragState === null) {
-      cancelLongPress();
+      if (Math.abs(e.clientY - pointerStartYRef.current) > 8) cancelLongPress();
       return;
     }
     const listEl = listRef.current;
