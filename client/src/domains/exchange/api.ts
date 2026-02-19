@@ -1,6 +1,6 @@
 import type { RatesCache } from './types';
 
-const FRANKFURTER_URL = 'https://api.frankfurter.app/latest';
+const EXCHANGE_RATE_URL = 'https://open.er-api.com/v6/latest/USD';
 const CACHE_KEY = 'exchange:rates';
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -36,16 +36,23 @@ export async function fetchLatestRates(): Promise<FetchRatesResult> {
     return { base: cached.base, date: cached.date, rates: cached.rates, fromCache: true };
   }
 
-  const response = await fetch(`${FRANKFURTER_URL}?from=USD`);
+  const response = await fetch(EXCHANGE_RATE_URL);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-  const data = await response.json();
-  // Include USD itself with rate 1
-  const rates: Record<string, number> = { USD: 1, ...data.rates };
+  const data = await response.json() as {
+    result: string;
+    base_code: string;
+    rates: Record<string, number>;
+    time_last_update_unix: number;
+  };
+  if (data.result !== 'success') throw new Error('API returned non-success result');
 
-  saveCache({ base: 'USD', date: data.date as string, rates });
+  const rates: Record<string, number> = data.rates;
+  const date = new Date(data.time_last_update_unix * 1000).toISOString().split('T')[0];
 
-  return { base: 'USD', date: data.date as string, rates, fromCache: false };
+  saveCache({ base: 'USD', date, rates });
+
+  return { base: 'USD', date, rates, fromCache: false };
 }
 
 export function getCachedRates(): RatesCache | null {

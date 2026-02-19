@@ -1,4 +1,4 @@
-import { ChevronDown, MinusCircle } from 'lucide-react';
+import { ChevronDown, Trash2 } from 'lucide-react';
 import { useExchangeStore } from '../store';
 import { CURRENCY_MAP, ZERO_DECIMAL_CURRENCIES, getFlagUrl } from '../constants';
 
@@ -45,7 +45,7 @@ export function CurrencyRow({ id, code, onChangeCurrency, onDelete }: CurrencyRo
         }}
         aria-label={`${code} 삭제`}
       >
-        <MinusCircle size={22} />
+        <Trash2 size={18} />
       </button>
 
       {/* Flag */}
