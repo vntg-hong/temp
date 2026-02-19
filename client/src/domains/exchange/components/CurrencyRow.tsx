@@ -59,7 +59,7 @@ export function CurrencyRow({
   return (
     <div
       className={[
-        'h-16 flex items-center gap-3 px-4 border-b border-slate-100 transition-shadow',
+        'min-h-16 py-3 flex items-center gap-3 px-4 border-b border-slate-100 transition-shadow',
         'select-none',
         isDragging
           ? 'bg-blue-50 shadow-lg relative z-10 cursor-grabbing'
@@ -116,10 +116,10 @@ export function CurrencyRow({
       </button>
 
       {/* Converted amount */}
-      <div className="flex-1 flex items-center justify-end gap-1.5 overflow-hidden">
+      <div className="flex-1 flex items-center justify-end gap-1.5 min-w-0">
         <span
           className={[
-            'tabular-nums truncate',
+            'tabular-nums break-all text-right',
             isBase || isDragging
               ? 'text-xl font-extrabold text-blue-900'
               : 'text-lg font-bold text-slate-900',
