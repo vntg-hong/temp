@@ -1,4 +1,4 @@
-import { ChevronDown, Trash2 } from 'lucide-react';
+import { ChevronDown, Trash2, GripVertical } from 'lucide-react';
 import { useExchangeStore } from '../store';
 import { CURRENCY_MAP, ZERO_DECIMAL_CURRENCIES, getFlagUrl } from '../constants';
 
@@ -7,6 +7,10 @@ interface CurrencyRowProps {
   code: string;
   onChangeCurrency: (id: string) => void;
   onDelete: (id: string) => void;
+  isDragging?: boolean;
+  onGripPointerDown?: (e: React.PointerEvent) => void;
+  onGripPointerMove?: (e: React.PointerEvent) => void;
+  onGripPointerUp?: (e: React.PointerEvent) => void;
 }
 
 function getCurrencySymbol(code: string): string {
@@ -33,7 +37,16 @@ function formatAmount(amount: number, code: string): string {
   }).format(amount);
 }
 
-export function CurrencyRow({ id, code, onChangeCurrency, onDelete }: CurrencyRowProps) {
+export function CurrencyRow({
+  id,
+  code,
+  onChangeCurrency,
+  onDelete,
+  isDragging = false,
+  onGripPointerDown,
+  onGripPointerMove,
+  onGripPointerUp,
+}: CurrencyRowProps) {
   const { baseCurrencyCode, setBaseCurrency, computeValue, inputString } = useExchangeStore();
   const isBase = baseCurrencyCode === code;
   const currencyInfo = CURRENCY_MAP.get(code);
@@ -46,11 +59,15 @@ export function CurrencyRow({ id, code, onChangeCurrency, onDelete }: CurrencyRo
   return (
     <div
       className={[
-        'h-16 flex items-center gap-3 px-4 border-b border-slate-100',
-        'cursor-pointer select-none',
-        isBase ? 'bg-blue-50 border-l-4 border-l-blue-500' : 'bg-white hover:bg-slate-50 active:bg-slate-100',
+        'h-16 flex items-center gap-3 px-4 border-b border-slate-100 transition-shadow',
+        'select-none',
+        isDragging
+          ? 'bg-blue-50 shadow-lg relative z-10 cursor-grabbing'
+          : isBase
+            ? 'cursor-pointer bg-blue-50 border-l-4 border-l-blue-500'
+            : 'cursor-pointer bg-white hover:bg-slate-50 active:bg-slate-100',
       ].join(' ')}
-      onClick={() => setBaseCurrency(code)}
+      onClick={isDragging ? undefined : () => setBaseCurrency(code)}
     >
       {/* Delete button */}
       <button
@@ -79,12 +96,16 @@ export function CurrencyRow({ id, code, onChangeCurrency, onDelete }: CurrencyRo
         className="flex flex-col items-start min-w-0 flex-shrink-0"
         onClick={(e) => {
           e.stopPropagation();
-          onChangeCurrency(id);
+          if (!isDragging) onChangeCurrency(id);
         }}
         aria-label={`${code} 변경`}
       >
         <div className="flex items-center gap-1">
-          <span className={`text-sm font-semibold ${isBase ? 'text-blue-700' : 'text-slate-800'}`}>
+          <span
+            className={`text-sm font-semibold ${
+              isDragging ? 'text-blue-700' : isBase ? 'text-blue-700' : 'text-slate-800'
+            }`}
+          >
             {code}
           </span>
           <ChevronDown size={12} className="text-slate-400" />
@@ -99,20 +120,41 @@ export function CurrencyRow({ id, code, onChangeCurrency, onDelete }: CurrencyRo
         <span
           className={[
             'tabular-nums truncate',
-            isBase
+            isBase || isDragging
               ? 'text-xl font-extrabold text-blue-900'
               : 'text-lg font-bold text-slate-900',
           ].join(' ')}
         >
           {symbol && (
-            <span className={`mr-0.5 ${isBase ? 'text-blue-600' : 'text-slate-500'} font-medium`}>
+            <span
+              className={`mr-0.5 font-medium ${isBase || isDragging ? 'text-blue-600' : 'text-slate-500'}`}
+            >
               {symbol}
             </span>
           )}
           {displayValue}
         </span>
-        {isBase && <span className="text-blue-500 text-sm flex-shrink-0">✓</span>}
+        {isBase && !isDragging && <span className="text-blue-500 text-sm flex-shrink-0">✓</span>}
       </div>
+
+      {/* Drag grip handle */}
+      <button
+        className={[
+          'flex-shrink-0 transition-colors touch-none p-1 -mr-1',
+          isDragging ? 'text-blue-400 cursor-grabbing' : 'text-slate-300 hover:text-slate-500 cursor-grab',
+        ].join(' ')}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          e.currentTarget.setPointerCapture(e.pointerId);
+          onGripPointerDown?.(e);
+        }}
+        onPointerMove={(e) => onGripPointerMove?.(e)}
+        onPointerUp={(e) => onGripPointerUp?.(e)}
+        onPointerCancel={(e) => onGripPointerUp?.(e)}
+        aria-label="순서 변경"
+      >
+        <GripVertical size={20} />
+      </button>
     </div>
   );
 }
