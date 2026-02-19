@@ -21,6 +21,7 @@ export const CURRENCIES: CurrencyInfo[] = [
   { code: 'IDR', name: 'Indonesian Rupiah', nameKo: '인도네시아 루피아', flag: '🇮🇩' },
   { code: 'MYR', name: 'Malaysian Ringgit', nameKo: '말레이시아 링깃', flag: '🇲🇾' },
   { code: 'PHP', name: 'Philippine Peso', nameKo: '필리핀 페소', flag: '🇵🇭' },
+  { code: 'VND', name: 'Vietnamese Dong', nameKo: '베트남 동', flag: '🇻🇳' },
   { code: 'BRL', name: 'Brazilian Real', nameKo: '브라질 레알', flag: '🇧🇷' },
   { code: 'MXN', name: 'Mexican Peso', nameKo: '멕시코 페소', flag: '🇲🇽' },
   { code: 'ZAR', name: 'South African Rand', nameKo: '남아공 랜드', flag: '🇿🇦' },
@@ -39,7 +40,7 @@ export const CURRENCY_MAP = new Map<string, CurrencyInfo>(
 );
 
 /** Currencies displayed with 0 decimal places */
-export const ZERO_DECIMAL_CURRENCIES = new Set(['JPY', 'KRW', 'IDR', 'HUF', 'ISK']);
+export const ZERO_DECIMAL_CURRENCIES = new Set(['JPY', 'KRW', 'IDR', 'HUF', 'ISK', 'VND']);
 
 /** Default currency rows shown on first launch */
 export const DEFAULT_CURRENCIES = ['USD', 'KRW', 'EUR', 'JPY', 'GBP', 'CNY'];
@@ -66,6 +67,7 @@ export const CURRENCY_FLAG_MAP: Record<string, string> = {
   IDR: 'id',
   MYR: 'my',
   PHP: 'ph',
+  VND: 'vn',
   BRL: 'br',
   MXN: 'mx',
   ZAR: 'za',
