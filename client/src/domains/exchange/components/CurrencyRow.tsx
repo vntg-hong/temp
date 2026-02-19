@@ -30,11 +30,13 @@ export function CurrencyRow({ id, code, onChangeCurrency, onDelete }: CurrencyRo
 
   const [swipeX, setSwipeX] = useState(0);
   const startXRef = useRef(0);
+  const lastSwipeXRef = useRef(0);
   const isDraggingRef = useRef(false);
   const didMoveRef = useRef(false);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     startXRef.current = e.clientX;
+    lastSwipeXRef.current = swipeX;
     isDraggingRef.current = true;
     didMoveRef.current = false;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -44,11 +46,8 @@ export function CurrencyRow({ id, code, onChangeCurrency, onDelete }: CurrencyRo
     if (!isDraggingRef.current) return;
     const delta = e.clientX - startXRef.current;
     if (Math.abs(delta) > 5) didMoveRef.current = true;
-    if (delta < 0) {
-      setSwipeX(Math.max(delta, -DELETE_BUTTON_WIDTH));
-    } else if (swipeX < 0) {
-      setSwipeX(Math.min(0, swipeX + delta));
-    }
+    const next = lastSwipeXRef.current + delta;
+    setSwipeX(Math.min(0, Math.max(next, -DELETE_BUTTON_WIDTH)));
   };
 
   const handlePointerUp = () => {
@@ -76,12 +75,16 @@ export function CurrencyRow({ id, code, onChangeCurrency, onDelete }: CurrencyRo
     <div className="relative overflow-hidden">
       {/* Delete button revealed on swipe-left */}
       <div
-        className="absolute right-0 top-0 bottom-0 flex items-center justify-center bg-red-500"
+        className="absolute right-0 top-0 bottom-0 flex items-center justify-center bg-red-500 z-10"
         style={{ width: DELETE_BUTTON_WIDTH }}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         <button
           className="text-white text-sm font-semibold w-full h-full"
-          onClick={() => onDelete(id)}
+          onClick={() => {
+            onDelete(id);
+            setSwipeX(0);
+          }}
         >
           삭제
         </button>
