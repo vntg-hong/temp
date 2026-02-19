@@ -28,6 +28,17 @@ function getCurrencySymbol(code: string): string {
   }
 }
 
+function getAmountSizeClass(len: number, isBase: boolean): string {
+  if (isBase) {
+    if (len > 20) return 'text-base';
+    if (len > 12) return 'text-lg';
+    return 'text-xl';
+  }
+  if (len > 20) return 'text-sm';
+  if (len > 12) return 'text-base';
+  return 'text-lg';
+}
+
 function formatAmount(amount: number, code: string): string {
   if (!isFinite(amount) || amount === 0) return '0';
   const decimals = ZERO_DECIMAL_CURRENCIES.has(code) ? 0 : 2;
@@ -55,6 +66,7 @@ export function CurrencyRow({
 
   // Base currency row shows raw input string; others show computed + formatted value
   const displayValue = isBase ? inputString || '0' : formatAmount(amount, code);
+  const sizeClass = getAmountSizeClass(displayValue.length, isBase || isDragging);
 
   return (
     <div
@@ -116,13 +128,12 @@ export function CurrencyRow({
       </button>
 
       {/* Converted amount */}
-      <div className="flex-1 flex items-center justify-end gap-1.5 min-w-0">
+      <div className="flex-1 flex items-center gap-1.5 min-w-0">
         <span
           className={[
-            'tabular-nums break-all text-right',
-            isBase || isDragging
-              ? 'text-xl font-extrabold text-blue-900'
-              : 'text-lg font-bold text-slate-900',
+            'flex-1 min-w-0 tabular-nums break-all text-right',
+            sizeClass,
+            isBase || isDragging ? 'font-extrabold text-blue-900' : 'font-bold text-slate-900',
           ].join(' ')}
         >
           {symbol && (
