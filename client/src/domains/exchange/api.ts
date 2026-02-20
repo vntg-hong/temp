@@ -30,9 +30,9 @@ export interface FetchRatesResult {
   fromCache: boolean;
 }
 
-export async function fetchLatestRates(): Promise<FetchRatesResult> {
+export async function fetchLatestRates(force = false): Promise<FetchRatesResult> {
   const cached = loadCache();
-  if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
+  if (!force && cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
     return { base: cached.base, date: cached.date, rates: cached.rates, fromCache: true };
   }
 
@@ -48,11 +48,12 @@ export async function fetchLatestRates(): Promise<FetchRatesResult> {
   if (data.result !== 'success') throw new Error('API returned non-success result');
 
   const rates: Record<string, number> = data.rates;
-  const d = new Date(data.time_last_update_unix * 1000);
-  const date = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(
-    d.getDate(),
-  ).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(
-    d.getMinutes(),
+  // Show local fetch time so the user can confirm "when did I last refresh?"
+  const now = new Date();
+  const date = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(
+    now.getDate(),
+  ).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(
+    now.getMinutes(),
   ).padStart(2, '0')}`;
 
   saveCache({ base: 'USD', date, rates });
