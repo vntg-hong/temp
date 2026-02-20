@@ -82,7 +82,7 @@ interface ExchangeState {
   removeCurrency: (id: string) => void;
   changeCurrency: (id: string, newCode: string) => void;
   reorderCurrency: (fromIndex: number, toIndex: number) => void;
-  loadRates: () => Promise<void>;
+  loadRates: (force?: boolean) => Promise<void>;
 }
 
 export const useExchangeStore = create<ExchangeState>()(
@@ -385,10 +385,10 @@ export const useExchangeStore = create<ExchangeState>()(
         });
       },
 
-      loadRates: async () => {
+      loadRates: async (force = false) => {
         set({ isLoading: true });
         try {
-          const result = await fetchLatestRates();
+          const result = await fetchLatestRates(force);
           set({
             rates: result.rates,
             ratesDate: result.date,

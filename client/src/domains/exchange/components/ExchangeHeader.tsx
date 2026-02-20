@@ -22,7 +22,7 @@ export function ExchangeHeader() {
 
       <div className="flex items-center">
         <button
-          onClick={loadRates}
+          onClick={() => loadRates(true)}
           disabled={isLoading}
           className="p-2 text-slate-600 hover:text-slate-900 active:bg-slate-100 rounded-lg transition-colors disabled:opacity-40"
           aria-label="환율 새로고침"
