@@ -1,8 +1,8 @@
-import { Menu } from 'lucide-react';
+import { RefreshCw, Menu } from 'lucide-react';
 import { useExchangeStore } from '../store';
 
 export function ExchangeHeader() {
-  const { isLoading, ratesDate } = useExchangeStore();
+  const { isLoading, ratesDate, loadRates } = useExchangeStore();
 
   return (
     <header className="h-14 flex items-center justify-between px-4 bg-white border-b border-slate-100 flex-shrink-0">
@@ -21,6 +21,14 @@ export function ExchangeHeader() {
       </div>
 
       <div className="flex items-center">
+        <button
+          onClick={loadRates}
+          disabled={isLoading}
+          className="p-2 text-slate-600 hover:text-slate-900 active:bg-slate-100 rounded-lg transition-colors disabled:opacity-40"
+          aria-label="환율 새로고침"
+        >
+          <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
+        </button>
         <button
           className="p-2 text-slate-600 hover:text-slate-900 active:bg-slate-100 rounded-lg transition-colors"
           aria-label="메뉴"
