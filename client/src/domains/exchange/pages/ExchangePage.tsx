@@ -16,7 +16,7 @@ export function ExchangePage() {
   return (
     /* Mobile-first: full height, centered on desktop with max-w-sm */
     <div className="min-h-screen bg-slate-200 flex justify-center">
-      <div className="h-screen w-full max-w-sm bg-white flex flex-col overflow-hidden shadow-xl">
+      <div className="h-screen w-full max-w-sm bg-white flex flex-col overflow-hidden shadow-xl pt-[env(safe-area-inset-top,0px)]">
         <ExchangeHeader />
         {isOffline && <StatusBar lastUpdate={ratesDate} />}
         <CurrencyList />
