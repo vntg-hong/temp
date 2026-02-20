@@ -51,6 +51,7 @@ interface ExchangeState {
   calcError: string | null;
   rates: Record<string, number>;
   ratesDate: string | null;
+  ratesApiDate: string | null; // YYYY.MM.DD from API — compare with today to know if stale
   isOffline: boolean;
   isLoading: boolean;
 
@@ -98,6 +99,7 @@ export const useExchangeStore = create<ExchangeState>()(
       calcError: null,
       rates: {},
       ratesDate: null,
+      ratesApiDate: null,
       isOffline: false,
       isLoading: false,
 
@@ -392,6 +394,7 @@ export const useExchangeStore = create<ExchangeState>()(
           set({
             rates: result.rates,
             ratesDate: result.date,
+            ratesApiDate: result.apiDate,
             isOffline: false,
             isLoading: false,
           });
