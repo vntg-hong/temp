@@ -80,7 +80,7 @@ export function NumericKeypad() {
   ];
 
   return (
-    <div className="bg-slate-100 p-2 flex-shrink-0 shadow-[0_-2px_12px_rgba(0,0,0,0.08)]">
+    <div className="bg-slate-100 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] flex-shrink-0 shadow-[0_-2px_12px_rgba(0,0,0,0.08)]">
       <div className="grid grid-cols-4 gap-1.5">
         {keys.map((key, i) => (
           <KeyButton key={i} config={key} height={key.height ?? 'h-14'} />
