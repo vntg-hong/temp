@@ -13,6 +13,7 @@ export interface CurrencyEntry {
 export interface RatesCache {
   base: string;
   date: string;
+  apiDate: string; // YYYY.MM.DD from time_last_update_unix — used to detect stale data
   rates: Record<string, number>;
   cachedAt: number;
 }
