@@ -65,15 +65,25 @@
 
 웹(React) 코드를 수정한 뒤 다시 앱으로 빌드하려면 아래 과정을 거쳐야 합니다.
 
-1. **웹 코드 빌드**:
-   ```powershell
-   npm run build
-   ```
-2. **안드로이드 프로젝트 동기화**:
-   ```powershell
-   npx cap sync
-   ```
-3. 이후 안드로이드 스튜디오에서 다시 **Build APK**를 수행하면 최신 코드가 반영된 앱이 생성됩니다.
+1. VS Code (또는 일반 터미널)에서 할 일
+웹 환경(React)을 안드로이드가 알아들을 수 있는 파일로 변환하는 과정입니다.
+
+명령어:
+
+npm run build
+
+npx cap copy (또는 npx cap sync)
+
+이유: React 코드를 빌드하고 안드로이드 폴더로 복사하는 기능은 웹 개발 환경인 VS Code가 더 빠르고 편하기 때문입니다.
+
+2. 안드로이드 스튜디오에서 할 일
+포장된 파일을 실제 안드로이드 설치 파일(.apk)로 뽑아내는 최종 공정입니다.
+
+작업:
+
+상단 메뉴 Build 클릭
+
+Generate App Bundle(s) / APK(s)... 클릭 후 Build APK(s) 실행
 
 ---
 
