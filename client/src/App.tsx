@@ -7,6 +7,7 @@ import { DocumentViewer } from './components/DocumentViewer';
 import { checkDatabaseConnection } from './domains/system/api';
 import { toast } from './core/utils/toast';
 import { ExchangePage } from './domains/exchange';
+import { TipPage } from './domains/tip';
 
 interface DocumentConfig {
   title: string;
@@ -243,6 +244,7 @@ function App() {
         <Route path="/" element={<ExchangePage />} />
         <Route path="/vibe" element={<LandingPage />} />
         <Route path="/exchange" element={<ExchangePage />} />
+        <Route path="/tip" element={<TipPage />} />
       </Routes>
     </BrowserRouter>
   );
