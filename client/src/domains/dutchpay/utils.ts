@@ -77,6 +77,59 @@ export function getTotalExpenseKRW(expenses: Expense[]): number {
   return expenses.reduce((sum, e) => sum + e.amount * e.exchangeRate, 0);
 }
 
+export interface MemberStat {
+  id: string;
+  name: string;
+  paid: number;  // 직접 결제한 금액 (KRW)
+  owed: number;  // 실제 부담해야 할 금액 (KRW)
+  net: number;   // paid - owed (양수 = 받을 돈, 음수 = 줄 돈)
+}
+
+/** 멤버별 결제·부담·차액 계산 */
+export function getMemberStats(members: Member[], expenses: Expense[]): MemberStat[] {
+  const paid: Record<string, number> = {};
+  const owed: Record<string, number> = {};
+  members.forEach((m) => {
+    paid[m.id] = 0;
+    owed[m.id] = 0;
+  });
+
+  for (const expense of expenses) {
+    const totalKRW = expense.amount * expense.exchangeRate;
+    const { participants, splitType, payerId } = expense;
+
+    paid[payerId] = (paid[payerId] ?? 0) + totalKRW;
+
+    if (!participants.length) continue;
+
+    if (splitType === 'EQUAL') {
+      const share = totalKRW / participants.length;
+      for (const p of participants) {
+        owed[p.memberId] = (owed[p.memberId] ?? 0) + share;
+      }
+    } else if (splitType === 'AMOUNT') {
+      for (const p of participants) {
+        owed[p.memberId] = (owed[p.memberId] ?? 0) + (p.amount ?? 0) * expense.exchangeRate;
+      }
+    } else if (splitType === 'WEIGHT') {
+      const totalWeight = participants.reduce((s, p) => s + (p.weight ?? 1), 0);
+      if (totalWeight > 0) {
+        for (const p of participants) {
+          owed[p.memberId] = (owed[p.memberId] ?? 0) + (totalKRW * (p.weight ?? 1)) / totalWeight;
+        }
+      }
+    }
+  }
+
+  return members.map((m) => ({
+    id: m.id,
+    name: m.name,
+    paid: paid[m.id] ?? 0,
+    owed: owed[m.id] ?? 0,
+    net: (paid[m.id] ?? 0) - (owed[m.id] ?? 0),
+  }));
+}
+
 /** KRW 포맷 */
 export function fmtKRW(amount: number): string {
   return `₩${Math.round(amount).toLocaleString('ko-KR')}`;

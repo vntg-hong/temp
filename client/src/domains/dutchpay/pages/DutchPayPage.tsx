@@ -18,7 +18,8 @@ import {
   Pencil,
 } from 'lucide-react';
 import { useDutchPayStore, genId } from '../store';
-import { calculateSettlement, getTotalExpenseKRW, fmtKRW } from '../utils';
+import { calculateSettlement, getTotalExpenseKRW, getMemberStats, fmtKRW } from '../utils';
+import type { MemberStat } from '../utils';
 import { MenuDrawer } from '../../../core/ui/MenuDrawer';
 import type { SplitType, DutchPayTab, Expense } from '../types';
 
@@ -118,6 +119,7 @@ export function DutchPayPage() {
   const totalKRW = getTotalExpenseKRW(expenses);
   const remaining = initialBudget - totalKRW;
   const settlementResults = calculateSettlement(members, expenses);
+  const memberStats = getMemberStats(members, expenses);
   const checkedCount = Object.values(form.participants).filter((v) => v.checked).length;
   const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? '?';
 
@@ -217,14 +219,47 @@ export function DutchPayPage() {
 
   /* ── 카카오톡 공유 텍스트 ── */
   const handleCopyShare = async () => {
+    const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? '?';
+
+    const expenseLines = expenses.map((e) => {
+      const sym = CURRENCY_SYMBOLS[e.currency] ?? '';
+      const amtStr =
+        e.currency === 'KRW'
+          ? fmtKRW(e.amount)
+          : `${sym}${e.amount.toLocaleString()} ${e.currency} (≈${fmtKRW(e.amount * e.exchangeRate)})`;
+      return `• ${e.title}: ${amtStr} — 결제: ${memberName(e.payerId)}`;
+    });
+
+    const statLines = memberStats.map((s) => {
+      const netTag =
+        s.net > 0.5
+          ? `+${fmtKRW(s.net)} 받음`
+          : s.net < -0.5
+            ? `${fmtKRW(Math.abs(s.net))} 보냄`
+            : '정산 완료';
+      return `• ${s.name}: 결제 ${fmtKRW(s.paid)} | 부담 ${fmtKRW(s.owed)} → ${netTag}`;
+    });
+
     const lines = [
       '🧮 여행/모임 정산 결과',
       '',
       `💰 총 지출: ${fmtKRW(totalKRW)}`,
       '',
+      `📋 지출 내역 (${expenses.length}건)`,
+      '━━━━━━━━━━━━━━',
+      ...expenseLines,
+      '━━━━━━━━━━━━━━',
+      '',
+      '👤 개인별 사용 내역',
+      '━━━━━━━━━━━━━━',
+      ...statLines,
+      '━━━━━━━━━━━━━━',
+      '',
       '📌 정산 내역',
       '━━━━━━━━━━━━━━',
-      ...settlementResults.map((r) => `👉 ${r.from} → ${r.to}: ${fmtKRW(r.amount)}`),
+      ...(settlementResults.length
+        ? settlementResults.map((r) => `👉 ${r.from} → ${r.to}: ${fmtKRW(r.amount)}`)
+        : ['✅ 추가 송금 없음']),
       '━━━━━━━━━━━━━━',
       '',
       `✅ 총 ${settlementResults.length}건의 송금으로 정산 완료!`,
@@ -566,6 +601,62 @@ export function DutchPayPage() {
               className="px-4 py-4 space-y-4"
               style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))' }}
             >
+              {/* 개인별 사용 내역 */}
+              {expenses.length > 0 && members.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                    개인별 사용 내역
+                  </p>
+                  <div className="space-y-2">
+                    {memberStats.map((s: MemberStat) => (
+                      <div
+                        key={s.id}
+                        className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                            {s.name[0]}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-slate-900">{s.name}</p>
+                            <div className="flex gap-3 mt-0.5">
+                              <span className="text-[11px] text-slate-500">
+                                결제 <span className="font-semibold text-slate-700">{fmtKRW(s.paid)}</span>
+                              </span>
+                              <span className="text-[11px] text-slate-400">|</span>
+                              <span className="text-[11px] text-slate-500">
+                                부담 <span className="font-semibold text-slate-700">{fmtKRW(s.owed)}</span>
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            {Math.abs(s.net) < 0.5 ? (
+                              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                정산 완료
+                              </span>
+                            ) : s.net > 0 ? (
+                              <div>
+                                <p className="text-sm font-black text-emerald-600 tabular-nums">
+                                  +{fmtKRW(s.net)}
+                                </p>
+                                <p className="text-[10px] text-emerald-500">받을 돈</p>
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="text-sm font-black text-red-500 tabular-nums">
+                                  -{fmtKRW(Math.abs(s.net))}
+                                </p>
+                                <p className="text-[10px] text-red-400">줄 돈</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* 결과 카드 */}
               {settlementResults.length === 0 && expenses.length > 0 ? (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-6 text-center">
