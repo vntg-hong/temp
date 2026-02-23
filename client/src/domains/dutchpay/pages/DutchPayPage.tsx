@@ -15,11 +15,13 @@ import {
   Receipt,
   BarChart3,
   Check,
+  Pencil,
 } from 'lucide-react';
 import { useDutchPayStore, genId } from '../store';
-import { calculateSettlement, getTotalExpenseKRW, fmtKRW } from '../utils';
+import { calculateSettlement, getTotalExpenseKRW, getMemberStats, fmtKRW } from '../utils';
+import type { MemberStat } from '../utils';
 import { MenuDrawer } from '../../../core/ui/MenuDrawer';
-import type { SplitType, DutchPayTab } from '../types';
+import type { SplitType, DutchPayTab, Expense } from '../types';
 
 /* ─────────────────────────────── 상수 ─────────────────────────────── */
 const CURRENCIES = ['KRW', 'USD', 'JPY', 'EUR', 'GBP', 'CNY', 'THB', 'SGD', 'HKD', 'AUD'];
@@ -60,6 +62,32 @@ const buildBlankForm = (
   ),
 });
 
+const buildFormFromExpense = (
+  expense: Expense,
+  members: { id: string; name: string }[],
+): FormState => {
+  const pMap = new Map(expense.participants.map((p) => [p.memberId, p]));
+  return {
+    title: expense.title,
+    amount: String(expense.amount),
+    currency: expense.currency,
+    exchangeRate: String(expense.exchangeRate),
+    payerId: expense.payerId,
+    splitType: expense.splitType,
+    participants: Object.fromEntries(
+      members.map((m) => {
+        const p = pMap.get(m.id);
+        let value = '';
+        if (p) {
+          if (expense.splitType === 'AMOUNT') value = String(p.amount ?? '');
+          else if (expense.splitType === 'WEIGHT') value = String(p.weight ?? '');
+        }
+        return [m.id, { checked: !!p, value }];
+      }),
+    ),
+  };
+};
+
 /* ─────────────────────────────── 컴포넌트 ─────────────────────────── */
 export function DutchPayPage() {
   const {
@@ -70,6 +98,7 @@ export function DutchPayPage() {
     deleteMember,
     setInitialBudget,
     addExpense,
+    updateExpense,
     deleteExpense,
     importData,
     reset,
@@ -81,6 +110,7 @@ export function DutchPayPage() {
   const [memberInput, setMemberInput] = useState('');
   const [budgetInput, setBudgetInput] = useState(initialBudget ? String(initialBudget) : '');
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(() => buildBlankForm(members));
   const [copied, setCopied] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
@@ -89,6 +119,7 @@ export function DutchPayPage() {
   const totalKRW = getTotalExpenseKRW(expenses);
   const remaining = initialBudget - totalKRW;
   const settlementResults = calculateSettlement(members, expenses);
+  const memberStats = getMemberStats(members, expenses);
   const checkedCount = Object.values(form.participants).filter((v) => v.checked).length;
   const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? '?';
 
@@ -111,10 +142,24 @@ export function DutchPayPage() {
     setInitialBudget(isNaN(v) || v < 0 ? 0 : v);
   };
 
-  /* ── 폼 열기 ── */
+  /* ── 신규 지출 폼 열기 ── */
   const openForm = () => {
+    setEditingId(null);
     setForm(buildBlankForm(members));
     setShowForm(true);
+  };
+
+  /* ── 수정 폼 열기 ── */
+  const openEditForm = (expense: Expense) => {
+    setEditingId(expense.id);
+    setForm(buildFormFromExpense(expense, members));
+    setShowForm(true);
+  };
+
+  /* ── 폼 닫기 ── */
+  const closeForm = () => {
+    setEditingId(null);
+    setShowForm(false);
   };
 
   /* ── 폼 필드 헬퍼 ── */
@@ -150,7 +195,7 @@ export function DutchPayPage() {
       return { memberId };
     });
 
-    addExpense({
+    const payload = {
       title: form.title.trim(),
       amount,
       currency: form.currency,
@@ -158,21 +203,63 @@ export function DutchPayPage() {
       payerId: form.payerId,
       participants,
       splitType: form.splitType,
-      date: new Date().toISOString(),
-    });
+      date: editingId
+        ? (expenses.find((e) => e.id === editingId)?.date ?? new Date().toISOString())
+        : new Date().toISOString(),
+    };
+
+    if (editingId) {
+      updateExpense(editingId, payload);
+    } else {
+      addExpense(payload);
+    }
+    setEditingId(null);
     setShowForm(false);
   };
 
   /* ── 카카오톡 공유 텍스트 ── */
   const handleCopyShare = async () => {
+    const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? '?';
+
+    const expenseLines = expenses.map((e) => {
+      const sym = CURRENCY_SYMBOLS[e.currency] ?? '';
+      const amtStr =
+        e.currency === 'KRW'
+          ? fmtKRW(e.amount)
+          : `${sym}${e.amount.toLocaleString()} ${e.currency} (≈${fmtKRW(e.amount * e.exchangeRate)})`;
+      return `• ${e.title}: ${amtStr} — 결제: ${memberName(e.payerId)}`;
+    });
+
+    const statLines = memberStats.map((s) => {
+      const netTag =
+        s.net > 0.5
+          ? `+${fmtKRW(s.net)} 받음`
+          : s.net < -0.5
+            ? `${fmtKRW(Math.abs(s.net))} 보냄`
+            : '정산 완료';
+      return `• ${s.name}: 결제 ${fmtKRW(s.paid)} | 부담 ${fmtKRW(s.owed)} → ${netTag}`;
+    });
+
     const lines = [
       '🧮 여행/모임 정산 결과',
       '',
       `💰 총 지출: ${fmtKRW(totalKRW)}`,
       '',
+      `📋 지출 내역 (${expenses.length}건)`,
+      '━━━━━━━━━━━━━━',
+      ...expenseLines,
+      '━━━━━━━━━━━━━━',
+      '',
+      '👤 개인별 사용 내역',
+      '━━━━━━━━━━━━━━',
+      ...statLines,
+      '━━━━━━━━━━━━━━',
+      '',
       '📌 정산 내역',
       '━━━━━━━━━━━━━━',
-      ...settlementResults.map((r) => `👉 ${r.from} → ${r.to}: ${fmtKRW(r.amount)}`),
+      ...(settlementResults.length
+        ? settlementResults.map((r) => `👉 ${r.from} → ${r.to}: ${fmtKRW(r.amount)}`)
+        : ['✅ 추가 송금 없음']),
       '━━━━━━━━━━━━━━',
       '',
       `✅ 총 ${settlementResults.length}건의 송금으로 정산 완료!`,
@@ -483,13 +570,22 @@ export function DutchPayPage() {
                               {fmtKRW(e.amount * e.exchangeRate)}
                             </p>
                           )}
-                          <button
-                            onClick={() => deleteExpense(e.id)}
-                            className="mt-1 p-1 text-red-400 hover:text-red-600 rounded-lg transition-colors"
-                            aria-label="삭제"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          <div className="mt-1 flex justify-end gap-1">
+                            <button
+                              onClick={() => openEditForm(e)}
+                              className="p-1 text-slate-400 hover:text-indigo-600 rounded-lg transition-colors"
+                              aria-label="수정"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              onClick={() => deleteExpense(e.id)}
+                              className="p-1 text-red-400 hover:text-red-600 rounded-lg transition-colors"
+                              aria-label="삭제"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -505,6 +601,62 @@ export function DutchPayPage() {
               className="px-4 py-4 space-y-4"
               style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))' }}
             >
+              {/* 개인별 사용 내역 */}
+              {expenses.length > 0 && members.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                    개인별 사용 내역
+                  </p>
+                  <div className="space-y-2">
+                    {memberStats.map((s: MemberStat) => (
+                      <div
+                        key={s.id}
+                        className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                            {s.name[0]}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-slate-900">{s.name}</p>
+                            <div className="flex gap-3 mt-0.5">
+                              <span className="text-[11px] text-slate-500">
+                                결제 <span className="font-semibold text-slate-700">{fmtKRW(s.paid)}</span>
+                              </span>
+                              <span className="text-[11px] text-slate-400">|</span>
+                              <span className="text-[11px] text-slate-500">
+                                부담 <span className="font-semibold text-slate-700">{fmtKRW(s.owed)}</span>
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            {Math.abs(s.net) < 0.5 ? (
+                              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                정산 완료
+                              </span>
+                            ) : s.net > 0 ? (
+                              <div>
+                                <p className="text-sm font-black text-emerald-600 tabular-nums">
+                                  +{fmtKRW(s.net)}
+                                </p>
+                                <p className="text-[10px] text-emerald-500">받을 돈</p>
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="text-sm font-black text-red-500 tabular-nums">
+                                  -{fmtKRW(Math.abs(s.net))}
+                                </p>
+                                <p className="text-[10px] text-red-400">줄 돈</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* 결과 카드 */}
               {settlementResults.length === 0 && expenses.length > 0 ? (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-6 text-center">
@@ -596,7 +748,7 @@ export function DutchPayPage() {
         <>
           <div
             className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
-            onClick={() => setShowForm(false)}
+            onClick={closeForm}
           />
           <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center">
             <div
@@ -608,9 +760,11 @@ export function DutchPayPage() {
             >
               {/* 시트 헤더 */}
               <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 flex-shrink-0">
-                <h3 className="text-base font-bold text-slate-900">지출 추가</h3>
+                <h3 className="text-base font-bold text-slate-900">
+                  {editingId ? '지출 수정' : '지출 추가'}
+                </h3>
                 <button
-                  onClick={() => setShowForm(false)}
+                  onClick={closeForm}
                   className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
                   aria-label="닫기"
                 >
@@ -812,7 +966,7 @@ export function DutchPayPage() {
               {/* 저장 / 취소 버튼 */}
               <div className="px-5 py-3 border-t border-slate-100 flex gap-2 flex-shrink-0">
                 <button
-                  onClick={() => setShowForm(false)}
+                  onClick={closeForm}
                   className="flex-1 py-3 bg-slate-100 text-slate-700 text-sm font-bold rounded-xl active:scale-95 transition-all"
                 >
                   취소
@@ -827,7 +981,7 @@ export function DutchPayPage() {
                   }
                   className="flex-1 py-3 bg-slate-900 text-white text-sm font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all"
                 >
-                  저장
+                  {editingId ? '수정 완료' : '저장'}
                 </button>
               </div>
             </div>
