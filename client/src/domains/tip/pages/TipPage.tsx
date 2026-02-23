@@ -42,6 +42,29 @@ export function TipPage() {
   const countryScrollRef = useRef<HTMLDivElement>(null);
   const customInputRef = useRef<HTMLInputElement>(null);
 
+  // Mouse drag-to-scroll for PC
+  const drag = useRef({ active: false, startX: 0, scrollLeft: 0, moved: false });
+
+  const onDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = countryScrollRef.current;
+    if (!el) return;
+    drag.current = { active: true, startX: e.pageX, scrollLeft: el.scrollLeft, moved: false };
+  };
+  const onDragMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!drag.current.active || !countryScrollRef.current) return;
+    const dx = e.pageX - drag.current.startX;
+    if (Math.abs(dx) > 3) drag.current.moved = true;
+    countryScrollRef.current.scrollLeft = drag.current.scrollLeft - dx;
+  };
+  const onDragEnd = () => { drag.current.active = false; };
+  // Suppress click on child buttons when drag occurred
+  const onClickCapture = (e: React.MouseEvent) => {
+    if (drag.current.moved) {
+      e.stopPropagation();
+      drag.current.moved = false;
+    }
+  };
+
   // Scroll selected country into view — directly manipulate scrollLeft
   // (avoid scrollIntoView which can affect parent vertical scroll)
   useEffect(() => {
@@ -102,7 +125,12 @@ export function TipPage() {
           </div>
           <div
             ref={countryScrollRef}
-            className="no-scrollbar flex gap-2 overflow-x-auto px-4 pb-3"
+            onMouseDown={onDragStart}
+            onMouseMove={onDragMove}
+            onMouseUp={onDragEnd}
+            onMouseLeave={onDragEnd}
+            onClickCapture={onClickCapture}
+            className="no-scrollbar flex gap-2 overflow-x-auto px-4 pb-3 cursor-grab active:cursor-grabbing select-none"
             style={{
               WebkitOverflowScrolling: 'touch', /* iOS momentum scroll */
               touchAction: 'pan-x',             /* tell browser: handle only horizontal touch */
