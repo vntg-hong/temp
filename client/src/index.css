@@ -108,6 +108,15 @@ h1, h2, h3, h4, h5, h6 {
   animation: mesh-gradient 15s ease infinite;
 }
 
+/* Hide scrollbar while keeping scroll functionality */
+.no-scrollbar {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE/Edge */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;                /* Chrome / Safari / Android WebView */
+}
+
 /* Micro-interactions */
 .hover-lift {
   @apply transition-transform duration-300 ease-out;

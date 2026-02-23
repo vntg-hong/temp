@@ -42,13 +42,16 @@ export function TipPage() {
   const countryScrollRef = useRef<HTMLDivElement>(null);
   const customInputRef = useRef<HTMLInputElement>(null);
 
-  // Scroll selected country into view
+  // Scroll selected country into view — directly manipulate scrollLeft
+  // (avoid scrollIntoView which can affect parent vertical scroll)
   useEffect(() => {
     const idx = TIP_COUNTRIES.findIndex((c) => c.code === selectedCountry?.code);
-    if (idx !== -1 && countryScrollRef.current) {
-      const chip = countryScrollRef.current.children[idx] as HTMLElement;
-      chip?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-    }
+    const container = countryScrollRef.current;
+    if (idx === -1 || !container) return;
+    const chip = container.children[idx] as HTMLElement;
+    if (!chip) return;
+    const scrollTarget = chip.offsetLeft - container.clientWidth / 2 + chip.offsetWidth / 2;
+    container.scrollTo({ left: Math.max(0, scrollTarget), behavior: 'smooth' });
   }, [selectedCountry]);
 
   const country = selectedCountry ?? TIP_COUNTRIES[0];
@@ -91,42 +94,48 @@ export function TipPage() {
           </div>
         </header>
 
+        {/* Country selector — lives OUTSIDE the vertical scroll container
+             so horizontal touch events don't conflict with page scroll */}
+        <div className="flex-shrink-0 border-b border-slate-100 bg-white">
+          <div className="px-4 pt-3 pb-1">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">여행 국가</p>
+          </div>
+          <div
+            ref={countryScrollRef}
+            className="no-scrollbar flex gap-2 overflow-x-auto px-4 pb-3"
+            style={{
+              WebkitOverflowScrolling: 'touch', /* iOS momentum scroll */
+              touchAction: 'pan-x',             /* tell browser: handle only horizontal touch */
+            } as React.CSSProperties}
+          >
+            {TIP_COUNTRIES.map((c) => {
+              const isSelected = c.code === country.code;
+              return (
+                <button
+                  key={c.code}
+                  onClick={() => setCountry(c)}
+                  className={[
+                    'flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-medium transition-all active:scale-95',
+                    isSelected
+                      ? 'bg-slate-900 text-white border-slate-900'
+                      : 'bg-white text-slate-700 border-slate-200',
+                  ].join(' ')}
+                >
+                  <span>{c.flag}</span>
+                  <span>{c.name}</span>
+                </button>
+              );
+            })}
+          </div>
+          {country.note && (
+            <p className="mx-4 mb-3 text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">
+              ℹ️ {country.note}
+            </p>
+          )}
+        </div>
+
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto">
-          {/* Country selector */}
-          <div className="px-4 pt-4 pb-2">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">여행 국가</p>
-            <div
-              ref={countryScrollRef}
-              className="flex gap-2 overflow-x-auto pb-1"
-              style={{ scrollbarWidth: 'none' }}
-            >
-              {TIP_COUNTRIES.map((c) => {
-                const isSelected = c.code === country.code;
-                return (
-                  <button
-                    key={c.code}
-                    onClick={() => setCountry(c)}
-                    className={[
-                      'flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-medium transition-all',
-                      isSelected
-                        ? 'bg-slate-900 text-white border-slate-900'
-                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400',
-                    ].join(' ')}
-                  >
-                    <span>{c.flag}</span>
-                    <span>{c.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-            {country.note && (
-              <p className="mt-2 text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">
-                ℹ️ {country.note}
-              </p>
-            )}
-          </div>
-
           {/* Bill Amount */}
           <div className="px-4 pt-4">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">결제 금액</p>
