@@ -16,6 +16,8 @@ import {
   BarChart3,
   Check,
   Pencil,
+  Circle,
+  CheckCircle2,
 } from 'lucide-react';
 import { useDutchPayStore, genId } from '../store';
 import { calculateSettlement, getTotalExpenseKRW, getMemberStats, fmtKRW } from '../utils';
@@ -100,6 +102,9 @@ export function DutchPayPage() {
     addExpense,
     updateExpense,
     deleteExpense,
+    completedSettlements,
+    toggleSettlementCompleted,
+    clearCompletedSettlements,
     importData,
     reset,
   } = useDutchPayStore();
@@ -122,6 +127,12 @@ export function DutchPayPage() {
   const memberStats = getMemberStats(members, expenses);
   const checkedCount = Object.values(form.participants).filter((v) => v.checked).length;
   const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? '?';
+  const sKey = (r: { from: string; to: string; amount: number }) =>
+    `${r.from}::${r.to}::${r.amount}`;
+  const completedCount = settlementResults.filter((r) =>
+    completedSettlements.includes(sKey(r)),
+  ).length;
+  const allCompleted = settlementResults.length > 0 && completedCount === settlementResults.length;
 
   /* ── 멤버 추가 ── */
   const handleAddMember = () => {
@@ -672,30 +683,85 @@ export function DutchPayPage() {
               ) : (
                 <>
                   <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                      송금 목록 ({settlementResults.length}건)
-                    </p>
+                    {/* 헤더 + 완료 진행도 */}
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        송금 목록 ({settlementResults.length}건)
+                      </p>
+                      <div className="flex items-center gap-2">
+                        {completedCount > 0 && (
+                          <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                            {completedCount}/{settlementResults.length} 완료
+                          </span>
+                        )}
+                        {completedCount > 0 && (
+                          <button
+                            onClick={clearCompletedSettlements}
+                            className="text-[11px] text-slate-400 hover:text-slate-600 underline"
+                          >
+                            초기화
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 전체 완료 배너 */}
+                    {allCompleted && (
+                      <div className="mb-2 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3 flex items-center gap-2">
+                        <span className="text-lg">🎉</span>
+                        <p className="text-sm font-bold text-emerald-700">모든 송금이 완료됐어요!</p>
+                      </div>
+                    )}
+
                     <div className="space-y-2">
-                      {settlementResults.map((r, i) => (
-                        <div
-                          key={i}
-                          className="bg-slate-900 rounded-2xl px-4 py-3 flex items-center gap-3"
-                        >
-                          <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
-                            {r.from[0]}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 text-sm">
-                              <span className="font-bold text-white truncate">{r.from}</span>
-                              <ArrowRight size={13} className="text-slate-400 flex-shrink-0" />
-                              <span className="font-bold text-slate-300 truncate">{r.to}</span>
+                      {settlementResults.map((r, i) => {
+                        const key = sKey(r);
+                        const done = completedSettlements.includes(key);
+                        return (
+                          <div
+                            key={i}
+                            className={[
+                              'rounded-2xl px-4 py-3 flex items-center gap-3 transition-all',
+                              done ? 'bg-slate-700/60' : 'bg-slate-900',
+                            ].join(' ')}
+                          >
+                            {/* 완료 체크 버튼 */}
+                            <button
+                              onClick={() => toggleSettlementCompleted(key)}
+                              className="flex-shrink-0 transition-transform active:scale-90"
+                              aria-label={done ? '완료 취소' : '완료 표시'}
+                            >
+                              {done ? (
+                                <CheckCircle2 size={22} className="text-emerald-400" />
+                              ) : (
+                                <Circle size={22} className="text-slate-600" />
+                              )}
+                            </button>
+
+                            <div className="flex-1 min-w-0">
+                              <div
+                                className={[
+                                  'flex items-center gap-1.5 text-sm',
+                                  done ? 'opacity-40 line-through' : '',
+                                ].join(' ')}
+                              >
+                                <span className="font-bold text-white truncate">{r.from}</span>
+                                <ArrowRight size={13} className="text-slate-400 flex-shrink-0" />
+                                <span className="font-bold text-slate-300 truncate">{r.to}</span>
+                              </div>
                             </div>
+
+                            <p
+                              className={[
+                                'text-base font-black tabular-nums flex-shrink-0 transition-all',
+                                done ? 'text-slate-500 line-through' : 'text-white',
+                              ].join(' ')}
+                            >
+                              {fmtKRW(r.amount)}
+                            </p>
                           </div>
-                          <p className="text-base font-black text-white tabular-nums flex-shrink-0">
-                            {fmtKRW(r.amount)}
-                          </p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
