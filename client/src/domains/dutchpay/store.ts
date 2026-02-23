@@ -15,6 +15,7 @@ interface DutchPayState {
   deleteMember: (id: string) => void;
   setInitialBudget: (amount: number) => void;
   addExpense: (expense: Omit<Expense, 'id'>) => void;
+  updateExpense: (id: string, expense: Omit<Expense, 'id'>) => void;
   deleteExpense: (id: string) => void;
   importData: (data: Pick<DutchPayState, 'members' | 'expenses' | 'initialBudget'>) => void;
   reset: () => void;
@@ -47,6 +48,11 @@ export const useDutchPayStore = create<DutchPayState>()(
       addExpense: (expense) =>
         set((s) => ({
           expenses: [{ ...expense, id: genId() }, ...s.expenses],
+        })),
+
+      updateExpense: (id, expense) =>
+        set((s) => ({
+          expenses: s.expenses.map((e) => (e.id === id ? { ...expense, id } : e)),
         })),
 
       deleteExpense: (id) =>
