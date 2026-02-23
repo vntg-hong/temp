@@ -359,8 +359,8 @@ def print_vibe_signature():
     info_content = Text.from_markup(
         f"\n[gray30]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/gray30]\n"
         f" 🚀 [bold white]AI Vibe Web Starter[/bold white]  [green]v{settings.APP_VERSION}[/green]\n\n"
-        f" 👨‍💻 Created by : [bold cyan]최경호[/bold cyan]\n"
-        f" 📮 Contact    : [underline sky_blue2]cjhol2107@vntgcorp.com[/underline sky_blue2]\n"
+        f" 👨‍💻 Created by : [bold cyan]홍채은[/bold cyan]\n"
+        f" 📮 Contact    : [underline sky_blue2]hong42@vntgcorp.com[/underline sky_blue2]\n"
         f" ✨ [italic gray70]Code with Vibe, Build with Speed.[/italic gray70]"
     )
     
