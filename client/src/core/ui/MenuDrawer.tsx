@@ -1,4 +1,4 @@
-import { X, Calculator, Percent } from 'lucide-react';
+import { X, Calculator, Percent, SplitSquareHorizontal } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface MenuDrawerProps {
@@ -19,6 +19,12 @@ const NAV_ITEMS = [
     label: '팁 계산기',
     icon: Percent,
     description: '나라별 팁 계산',
+  },
+  {
+    path: '/dutch-pay',
+    label: '여행/모임 정산',
+    icon: SplitSquareHorizontal,
+    description: '더치페이 자동 계산',
   },
 ];
 
