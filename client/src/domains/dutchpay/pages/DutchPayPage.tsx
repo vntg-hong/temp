@@ -374,16 +374,28 @@ export function DutchPayPage() {
   };
 
   /* ── JSON 내보내기 ── */
-  const handleExport = () => {
-    const blob = new Blob(
-      [JSON.stringify({ members, expenses, initialBudget }, null, 2)],
-      { type: 'application/json' },
-    );
+  const handleExport = async () => {
+    const json = JSON.stringify({ members, expenses, initialBudget }, null, 2);
+    const filename = `dutch-pay-${new Date().toISOString().slice(0, 10)}.json`;
+    const blob = new Blob([json], { type: 'application/json' });
+
+    // 모바일(iOS 포함): Web Share API로 파일 공유
+    if (typeof navigator.share === 'function') {
+      const file = new File([blob], filename, { type: 'application/json' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: '정산 데이터' }).catch(() => {});
+        return;
+      }
+    }
+
+    // 데스크탑 fallback: 앵커를 DOM에 붙인 후 클릭
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `dutch-pay-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = filename;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
