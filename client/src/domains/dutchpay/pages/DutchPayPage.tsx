@@ -244,9 +244,9 @@ export function DutchPayPage() {
     const statLines = memberStats.map((s) => {
       const netTag =
         s.net > 0.5
-          ? `+${fmtKRW(s.net)} 받음`
+          ? `총 ${fmtKRW(s.net)} 입금예정`
           : s.net < -0.5
-            ? `${fmtKRW(Math.abs(s.net))} 보냄`
+            ? `${fmtKRW(Math.abs(s.net))} 송금 필요`
             : '정산 완료';
       return `• ${s.name}: 결제 ${fmtKRW(s.paid)} | 부담 ${fmtKRW(s.owed)} → ${netTag}`;
     });
