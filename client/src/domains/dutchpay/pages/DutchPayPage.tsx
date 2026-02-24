@@ -288,6 +288,39 @@ export function DutchPayPage() {
       return `• ${e.title}: ${amtStr} — 결제: ${memberName(e.payerId)}`;
     });
 
+    const breakdownLines: string[] = [];
+    for (const e of expenses) {
+      const totalKRW = e.amount * e.exchangeRate;
+      const sym = CURRENCY_SYMBOLS[e.currency] ?? '';
+      const amtStr =
+        e.currency === 'KRW'
+          ? fmtKRW(e.amount)
+          : `${sym}${e.amount.toLocaleString()} ${e.currency} (≈${fmtKRW(totalKRW)})`;
+      breakdownLines.push(`▸ ${e.title}  [${amtStr} / 결제: ${memberName(e.payerId)}]`);
+
+      const shares: { memberId: string; amount: number }[] = (() => {
+        if (e.splitType === 'AMOUNT')
+          return e.participants.map((p) => ({
+            memberId: p.memberId,
+            amount: (p.amount ?? 0) * e.exchangeRate,
+          }));
+        if (e.splitType === 'WEIGHT') {
+          const tw = e.participants.reduce((s, p) => s + (p.weight ?? 1), 0);
+          return e.participants.map((p) => ({
+            memberId: p.memberId,
+            amount: tw > 0 ? totalKRW * ((p.weight ?? 1) / tw) : 0,
+          }));
+        }
+        const share = e.participants.length > 0 ? totalKRW / e.participants.length : 0;
+        return e.participants.map((p) => ({ memberId: p.memberId, amount: share }));
+      })();
+
+      for (const { memberId, amount } of shares) {
+        const tag = memberId === e.payerId ? ' (결제)' : '';
+        breakdownLines.push(`  • ${memberName(memberId)}${tag}: ${fmtKRW(amount)}`);
+      }
+    }
+
     const statLines = memberStats.map((s) => {
       const netTag =
         s.net > 0.5
@@ -314,6 +347,11 @@ export function DutchPayPage() {
       `📋 지출 내역 (${expenses.length}건)`,
       '─────────────────',
       ...expenseLines,
+      '─────────────────',
+      '',
+      '📊 지출별 분담 내역',
+      '─────────────────',
+      ...breakdownLines,
       '─────────────────',
       '',
       '👤 개인별 사용 내역',
