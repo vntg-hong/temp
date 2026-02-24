@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { FileDownload } from '../../../core/plugins/fileDownload';
 import {
   ArrowLeft,
   Menu,
@@ -392,35 +393,16 @@ export function DutchPayPage() {
       // 0. Capacitor Native Platform (Android/iOS App)
       if (Capacitor.isNativePlatform()) {
         if (isAndroid) {
-          // Android: 내장 메모리 Download 폴더에 직접 저장
-          // Android 10: requestLegacyExternalStorage 로 허용
-          // Android 11+: ExternalStorage 쓰기 실패 시 Share 시트 fallback
-          try {
-            await Filesystem.writeFile({
-              path: `Download/${filename}`,
-              data: json,
-              directory: Directory.ExternalStorage,
-              encoding: Encoding.UTF8,
-              recursive: true,
-            });
-            setExportStatus('done');
-            return;
-          } catch {
-            // Android 11+ 스코프드 스토리지 제한 → Share 시트로 대체
-            const result = await Filesystem.writeFile({
-              path: filename,
-              data: json,
-              directory: Directory.Cache,
-              encoding: Encoding.UTF8,
-            });
-            await Share.share({
-              title: '정산 데이터 내보내기',
-              files: [result.uri],
-              dialogTitle: '데이터 저장 및 공유',
-            });
-            setExportStatus('done');
-            return;
-          }
+          // Android 10+ : MediaStore.Downloads API (권한 불필요)
+          // Android 9-  : 직접 파일 쓰기 (WRITE_EXTERNAL_STORAGE)
+          // → 내 파일 > 내장 메모리 > Download > a 폴더에 저장
+          await FileDownload.writeToDownloads({
+            filename,
+            data: json,
+            subfolder: 'a',
+          });
+          setExportStatus('done');
+          return;
         }
 
         // iOS Native: Cache에 저장 후 share sheet (Files 앱에 저장 가능)
