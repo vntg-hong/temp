@@ -392,20 +392,35 @@ export function DutchPayPage() {
       // 0. Capacitor Native Platform (Android/iOS App)
       if (Capacitor.isNativePlatform()) {
         if (isAndroid) {
-          // Android: Cache에 저장 후 공유 시트 (Android 10+ 스코프드 스토리지 대응)
-          const result = await Filesystem.writeFile({
-            path: filename,
-            data: json,
-            directory: Directory.Cache,
-            encoding: Encoding.UTF8,
-          });
-          await Share.share({
-            title: '정산 데이터 내보내기',
-            files: [result.uri],
-            dialogTitle: '데이터 저장 및 공유',
-          });
-          setExportStatus('done');
-          return;
+          // Android: 내장 메모리 Download 폴더에 직접 저장
+          // Android 10: requestLegacyExternalStorage 로 허용
+          // Android 11+: ExternalStorage 쓰기 실패 시 Share 시트 fallback
+          try {
+            await Filesystem.writeFile({
+              path: `Download/${filename}`,
+              data: json,
+              directory: Directory.ExternalStorage,
+              encoding: Encoding.UTF8,
+              recursive: true,
+            });
+            setExportStatus('done');
+            return;
+          } catch {
+            // Android 11+ 스코프드 스토리지 제한 → Share 시트로 대체
+            const result = await Filesystem.writeFile({
+              path: filename,
+              data: json,
+              directory: Directory.Cache,
+              encoding: Encoding.UTF8,
+            });
+            await Share.share({
+              title: '정산 데이터 내보내기',
+              files: [result.uri],
+              dialogTitle: '데이터 저장 및 공유',
+            });
+            setExportStatus('done');
+            return;
+          }
         }
 
         // iOS Native: Cache에 저장 후 share sheet (Files 앱에 저장 가능)
