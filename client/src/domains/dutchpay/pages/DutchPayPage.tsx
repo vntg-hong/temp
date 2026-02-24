@@ -20,7 +20,14 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { useDutchPayStore, genId } from '../store';
-import { calculateSettlement, getTotalExpenseKRW, getMemberStats, fmtKRW } from '../utils';
+import {
+  calculateSettlement,
+  getTotalExpenseKRW,
+  getMemberStats,
+  getBudgetStats,
+  fmtKRW,
+  BUDGET_PAYER_ID,
+} from '../utils';
 import type { MemberStat } from '../utils';
 import { MenuDrawer } from '../../../core/ui/MenuDrawer';
 import type { SplitType, DutchPayTab, Expense } from '../types';
@@ -126,7 +133,20 @@ export function DutchPayPage() {
   const settlementResults = calculateSettlement(members, expenses);
   const memberStats = getMemberStats(members, expenses);
   const checkedCount = Object.values(form.participants).filter((v) => v.checked).length;
-  const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? '?';
+  const memberName = (id: string) => {
+    if (id === BUDGET_PAYER_ID) return '공동자금';
+    return members.find((m) => m.id === id)?.name ?? '?';
+  };
+
+  // 공동자금 현황 (정산 탭 표시용)
+  const budgetStats = getBudgetStats(expenses, initialBudget, members.length);
+
+  // 폼 내 공동자금 잔액 (현재 수정 중인 지출 제외)
+  const budgetUsedForForm = expenses
+    .filter((e) => e.payerId === BUDGET_PAYER_ID && e.id !== (editingId ?? ''))
+    .reduce((s, e) => s + e.amount * e.exchangeRate, 0);
+  const budgetRemainingForForm = initialBudget - budgetUsedForForm;
+
   const sKey = (r: { from: string; to: string; amount: number }) =>
     `${r.from}::${r.to}::${r.amount}`;
   const completedCount = settlementResults.filter((r) =>
@@ -254,7 +274,10 @@ export function DutchPayPage() {
 
   /* ── 카카오톡 공유 텍스트 ── */
   const handleCopyShare = async () => {
-    const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? '?';
+    const memberName = (id: string) => {
+      if (id === BUDGET_PAYER_ID) return '공동자금';
+      return members.find((m) => m.id === id)?.name ?? '?';
+    };
 
     const expenseLines = expenses.map((e) => {
       const sym = CURRENCY_SYMBOLS[e.currency] ?? '';
@@ -672,6 +695,57 @@ export function DutchPayPage() {
               className="px-4 py-4 space-y-4"
               style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))' }}
             >
+              {/* 공동자금 현황 */}
+              {initialBudget > 0 && budgetStats.budgetUsed > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                    공동자금 현황
+                  </p>
+                  <div className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-amber-800">초기 예산</span>
+                      <span className="text-sm font-bold text-amber-900 tabular-nums">
+                        {fmtKRW(initialBudget)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-amber-600">사용</span>
+                      <span className="text-xs font-semibold text-amber-800 tabular-nums">
+                        {fmtKRW(budgetStats.budgetUsed)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-amber-200 pt-2">
+                      <span className="text-xs font-semibold text-amber-700">잔액</span>
+                      <span
+                        className={[
+                          'text-sm font-black tabular-nums',
+                          budgetStats.budgetRemaining < 0 ? 'text-red-600' : 'text-emerald-600',
+                        ].join(' ')}
+                      >
+                        {budgetStats.budgetRemaining < 0 ? '-' : ''}
+                        {fmtKRW(Math.abs(budgetStats.budgetRemaining))}
+                      </span>
+                    </div>
+                    {budgetStats.shortfall > 0 && (
+                      <div className="bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+                        <p className="text-[11px] text-red-600 font-semibold">
+                          ⚠ 공동자금 {fmtKRW(budgetStats.shortfall)} 초과
+                        </p>
+                        {members.length > 0 && (
+                          <p className="text-[11px] text-red-500 mt-0.5">
+                            → {members.length}명, 1인당{' '}
+                            <span className="font-bold">
+                              {fmtKRW(budgetStats.shortfallPerMember)}
+                            </span>{' '}
+                            추가 필요
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* 개인별 사용 내역 */}
               {expenses.length > 0 && members.length > 0 && (
                 <div>
@@ -724,6 +798,101 @@ export function DutchPayPage() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 지출별 분담 내역 */}
+              {expenses.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                    지출별 분담 내역
+                  </p>
+                  <div className="space-y-2">
+                    {expenses.map((e) => {
+                      const totalKRW = e.amount * e.exchangeRate;
+                      const shares: { memberId: string; amount: number }[] = (() => {
+                        if (e.splitType === 'AMOUNT')
+                          return e.participants.map((p) => ({
+                            memberId: p.memberId,
+                            amount: (p.amount ?? 0) * e.exchangeRate,
+                          }));
+                        if (e.splitType === 'WEIGHT') {
+                          const tw = e.participants.reduce((s, p) => s + (p.weight ?? 1), 0);
+                          return e.participants.map((p) => ({
+                            memberId: p.memberId,
+                            amount: tw > 0 ? totalKRW * ((p.weight ?? 1) / tw) : 0,
+                          }));
+                        }
+                        // EQUAL
+                        const share =
+                          e.participants.length > 0 ? totalKRW / e.participants.length : 0;
+                        return e.participants.map((p) => ({ memberId: p.memberId, amount: share }));
+                      })();
+
+                      return (
+                        <div
+                          key={e.id}
+                          className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3"
+                        >
+                          {/* 지출 헤더 */}
+                          <div className="flex items-center justify-between mb-2.5">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-slate-900 truncate">{e.title}</p>
+                              <p className="text-[11px] text-slate-400 mt-0.5">
+                                결제:{' '}
+                                <span className="font-semibold text-slate-600">
+                                  {memberName(e.payerId)}
+                                </span>
+                                {' '}·{' '}{SPLIT_LABELS[e.splitType]}
+                              </p>
+                            </div>
+                            <p className="text-sm font-bold text-slate-900 flex-shrink-0 ml-2 tabular-nums">
+                              {fmtKRW(totalKRW)}
+                            </p>
+                          </div>
+
+                          {/* 참여자별 분담 */}
+                          <div className="space-y-1.5">
+                            {shares.map(({ memberId, amount }) => {
+                              const isPayer = memberId === e.payerId;
+                              return (
+                                <div key={memberId} className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5">
+                                    <div
+                                      className={[
+                                        'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0',
+                                        isPayer
+                                          ? 'bg-slate-900 text-white'
+                                          : 'bg-slate-200 text-slate-600',
+                                      ].join(' ')}
+                                    >
+                                      {memberName(memberId)[0]}
+                                    </div>
+                                    <span className="text-xs text-slate-700 font-medium">
+                                      {memberName(memberId)}
+                                    </span>
+                                    {isPayer && (
+                                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                                        결제
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span
+                                    className={[
+                                      'text-xs font-bold tabular-nums',
+                                      isPayer ? 'text-slate-900' : 'text-slate-600',
+                                    ].join(' ')}
+                                  >
+                                    {fmtKRW(amount)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -974,6 +1143,20 @@ export function DutchPayPage() {
                     결제자
                   </label>
                   <div className="mt-1.5 flex flex-wrap gap-2">
+                    {/* 공동자금 버튼 */}
+                    {initialBudget > 0 && (
+                      <button
+                        onClick={() => setField('payerId', BUDGET_PAYER_ID)}
+                        className={[
+                          'px-3 py-1.5 rounded-xl border text-sm font-semibold transition-all',
+                          form.payerId === BUDGET_PAYER_ID
+                            ? 'bg-amber-500 text-white border-amber-500'
+                            : 'bg-white text-amber-600 border-amber-200 hover:border-amber-400',
+                        ].join(' ')}
+                      >
+                        공동자금
+                      </button>
+                    )}
                     {members.map((m) => (
                       <button
                         key={m.id}
@@ -989,6 +1172,34 @@ export function DutchPayPage() {
                       </button>
                     ))}
                   </div>
+
+                  {/* 공동자금 선택 시 잔액 및 초과 경고 */}
+                  {form.payerId === BUDGET_PAYER_ID && (
+                    <div className="mt-1.5 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 space-y-0.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] text-amber-600">공동자금 잔액</span>
+                        <span
+                          className={[
+                            'text-[11px] font-bold',
+                            budgetRemainingForForm < 0 ? 'text-red-600' : 'text-amber-700',
+                          ].join(' ')}
+                        >
+                          {fmtKRW(Math.abs(budgetRemainingForForm))}
+                          {budgetRemainingForForm < 0 ? ' (초과)' : ' 남음'}
+                        </span>
+                      </div>
+                      {totalAmount > 0 && totalAmount > budgetRemainingForForm && budgetRemainingForForm > 0 && (
+                        <p className="text-[11px] text-red-500">
+                          ⚠ 잔액 초과 {fmtKRW(totalAmount - budgetRemainingForForm)} — 별도 정산 필요
+                        </p>
+                      )}
+                      {budgetRemainingForForm <= 0 && (
+                        <p className="text-[11px] text-red-500">
+                          ⚠ 공동자금이 소진됐습니다 — 별도 정산 필요
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* 참여자 */}

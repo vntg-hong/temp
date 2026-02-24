@@ -45,7 +45,7 @@ export function MenuDrawer({ isOpen, onClose, currentPath }: MenuDrawerProps) {
           'fixed top-0 right-0 h-full w-64 z-50 bg-white shadow-2xl flex flex-col transition-transform duration-300',
           isOpen ? 'translate-x-0' : 'translate-x-full',
         ].join(' ')}
-        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.5rem)' }}
       >
         {/* Drawer header */}
         <div className="h-14 flex items-center justify-between px-4 border-b border-slate-100">

@@ -195,7 +195,10 @@ export function CalculatorModal() {
         </div>
 
         {/* Keypad */}
-        <div className="bg-slate-100 p-2">
+        <div
+          className="bg-slate-100 p-2"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.5rem)' }}
+        >
           <div className="grid grid-cols-4 gap-1.5">
             {keys.map((key, i) => (
               <CalcKey key={i} config={key} />

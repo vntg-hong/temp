@@ -1,5 +1,8 @@
 import type { Member, Expense, SettlementResult } from './types';
 
+/** 공동자금(초기예산)으로 결제한 지출의 특수 payerId */
+export const BUDGET_PAYER_ID = '__BUDGET__';
+
 /** 각 멤버의 net balance(KRW) 계산 후 최소 송금 경로 산출 */
 export function calculateSettlement(members: Member[], expenses: Expense[]): SettlementResult[] {
   const balance: Record<string, number> = {};
@@ -8,6 +11,8 @@ export function calculateSettlement(members: Member[], expenses: Expense[]): Set
   });
 
   for (const expense of expenses) {
+    // 공동자금 결제는 개인 정산 대상에서 제외 (기록 전용)
+    if (expense.payerId === BUDGET_PAYER_ID) continue;
     const totalKRW = expense.amount * expense.exchangeRate;
     const { participants, splitType, payerId } = expense;
 
@@ -95,6 +100,9 @@ export function getMemberStats(members: Member[], expenses: Expense[]): MemberSt
   });
 
   for (const expense of expenses) {
+    // 공동자금 결제는 개인 통계에서 제외
+    if (expense.payerId === BUDGET_PAYER_ID) continue;
+
     const totalKRW = expense.amount * expense.exchangeRate;
     const { participants, splitType, payerId } = expense;
 
@@ -128,6 +136,28 @@ export function getMemberStats(members: Member[], expenses: Expense[]): MemberSt
     owed: owed[m.id] ?? 0,
     net: (paid[m.id] ?? 0) - (owed[m.id] ?? 0),
   }));
+}
+
+/** 공동자금 현황 */
+export interface BudgetStat {
+  budgetUsed: number;       // 공동자금으로 결제한 총액 (KRW)
+  budgetRemaining: number;  // 잔액 (음수 = 초과)
+  shortfall: number;        // 초과 금액 (0이면 초과 없음)
+  shortfallPerMember: number;
+}
+
+export function getBudgetStats(
+  expenses: Expense[],
+  initialBudget: number,
+  memberCount: number,
+): BudgetStat {
+  const budgetUsed = expenses
+    .filter((e) => e.payerId === BUDGET_PAYER_ID)
+    .reduce((s, e) => s + e.amount * e.exchangeRate, 0);
+  const budgetRemaining = initialBudget - budgetUsed;
+  const shortfall = budgetRemaining < 0 ? Math.abs(budgetRemaining) : 0;
+  const shortfallPerMember = memberCount > 0 && shortfall > 0 ? shortfall / memberCount : 0;
+  return { budgetUsed, budgetRemaining, shortfall, shortfallPerMember };
 }
 
 /** KRW 포맷 */
