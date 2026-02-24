@@ -380,11 +380,30 @@ export function DutchPayPage() {
     const json = JSON.stringify({ members, expenses, initialBudget }, null, 2);
     const filename = `dutch-pay-${new Date().toISOString().slice(0, 10)}.json`;
     const blob = new Blob([json], { type: 'application/json' });
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const ua = navigator.userAgent;
+    const isIOS = /iPad|iPhone|iPod/.test(ua);
+    const isAndroid = /Android/i.test(ua);
 
     setExportStatus('saving');
     try {
-      // ① iOS 전용: navigator.share — iOS는 anchor download가 불안정하므로 share sheet 사용
+      // ① Android: await 없이 즉시 blob URL anchor download
+      //    이유: async 함수에서 await 이후엔 user gesture 컨텍스트가 만료됨
+      //         → Chrome이 보안상 다운로드를 차단. 모든 await보다 먼저 실행해야 함
+      //    참고: data: URL은 Android Chrome 65+에서 보안 정책으로 차단됨 → blob URL 사용
+      if (isAndroid) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setExportStatus('done');
+        return;
+      }
+
+      // ② iOS: navigator.share — iOS는 anchor download가 불안정
       if (isIOS) {
         if (typeof navigator.share === 'function') {
           const file = new File([blob], filename, { type: 'application/json' });
@@ -399,9 +418,8 @@ export function DutchPayPage() {
         return;
       }
 
-      // ② showSaveFilePicker: 저장 위치를 직접 선택하는 네이티브 다이얼로그
-      //    Desktop Chrome·Edge + Android Chrome 86+ 지원
-      //    → 브라우저가 사용자에게 저장 위치 접근 권한을 명시적으로 요청
+      // ③ Desktop Chrome·Edge: showSaveFilePicker로 저장 위치 직접 선택
+      //    ※ HTTPS 환경 필요 (HTTP에서는 NotAllowedError 발생 → fallback으로 진행)
       if ('showSaveFilePicker' in window) {
         try {
           const handle = await (
@@ -419,23 +437,22 @@ export function DutchPayPage() {
           return;
         } catch (err) {
           if ((err as DOMException).name === 'AbortError') {
-            // 사용자가 직접 취소
             setExportStatus('idle');
-            return;
+            return; // 사용자가 직접 취소
           }
-          // NotAllowedError 등 권한 거부 → anchor download로 fallback
+          // NotAllowedError(HTTP 환경 등) → blob URL fallback으로 진행
         }
       }
 
-      // ③ Android Chrome + 기타 브라우저: data URL anchor download → Downloads 폴더 저장
-      //    blob URL보다 data URL이 Android에서 더 안정적으로 동작
-      const dataUrl = `data:application/json;charset=utf-8,${encodeURIComponent(json)}`;
+      // ④ Desktop 기타 브라우저 fallback: blob URL anchor download
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = dataUrl;
+      a.href = url;
       a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
       setExportStatus('done');
     } catch {
       setExportStatus('error');
