@@ -1,5 +1,8 @@
 import { useState, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import {
   ArrowLeft,
   Menu,
@@ -336,9 +339,9 @@ export function DutchPayPage() {
     const CIRCLE_NUMS = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
     const settlementLines = settlementResults.length
       ? settlementResults.map(
-          (r, i) =>
-            `${CIRCLE_NUMS[i] ?? `${i + 1}.`}  ${r.from}  →  ${r.to}  :  ${fmtKRW(r.amount)}`,
-        )
+        (r, i) =>
+          `${CIRCLE_NUMS[i] ?? `${i + 1}.`}  ${r.from}  →  ${r.to}  :  ${fmtKRW(r.amount)}`,
+      )
       : ['✅ 추가 송금 없음'];
 
     const lines = [
@@ -386,10 +389,33 @@ export function DutchPayPage() {
 
     setExportStatus('saving');
     try {
-      // ① Android: await 없이 즉시 blob URL anchor download
-      //    이유: async 함수에서 await 이후엔 user gesture 컨텍스트가 만료됨
-      //         → Chrome이 보안상 다운로드를 차단. 모든 await보다 먼저 실행해야 함
-      //    참고: data: URL은 Android Chrome 65+에서 보안 정책으로 차단됨 → blob URL 사용
+      // 0. Capacitor Native Platform (Android/iOS App)
+      if (Capacitor.isNativePlatform()) {
+        try {
+          // UTF8 인코딩을 사용하여 직접 저장 (한글 깨짐 없음)
+          const result = await Filesystem.writeFile({
+            path: filename,
+            data: json,
+            directory: Directory.Cache, // 공유를 위해 캐시 디렉토리 사용
+            encoding: Encoding.UTF8,
+          });
+
+          // 파일 공유 시트 열기
+          await Share.share({
+            title: '정산 데이터 내보내기',
+            files: [result.uri],
+            dialogTitle: '데이터 저장 및 공유',
+          });
+
+          setExportStatus('done');
+        } catch (err) {
+          console.error('Native export error:', err);
+          setExportStatus('error');
+        }
+        return;
+      }
+
+      // ① Android Browser: await 없이 즉시 blob URL anchor download
       if (isAndroid) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -403,7 +429,7 @@ export function DutchPayPage() {
         return;
       }
 
-      // ② iOS: navigator.share — iOS는 anchor download가 불안정
+      // ② iOS Browser: navigator.share 또는 fallback
       if (isIOS) {
         if (typeof navigator.share === 'function') {
           const file = new File([blob], filename, { type: 'application/json' });
@@ -418,8 +444,7 @@ export function DutchPayPage() {
         return;
       }
 
-      // ③ Desktop Chrome·Edge: showSaveFilePicker로 저장 위치 직접 선택
-      //    ※ HTTPS 환경 필요 (HTTP에서는 NotAllowedError 발생 → fallback으로 진행)
+      // ③ Desktop Chrome·Edge: showSaveFilePicker
       if ('showSaveFilePicker' in window) {
         try {
           const handle = await (
@@ -438,13 +463,12 @@ export function DutchPayPage() {
         } catch (err) {
           if ((err as DOMException).name === 'AbortError') {
             setExportStatus('idle');
-            return; // 사용자가 직접 취소
+            return;
           }
-          // NotAllowedError(HTTP 환경 등) → blob URL fallback으로 진행
         }
       }
 
-      // ④ Desktop 기타 브라우저 fallback: blob URL anchor download
+      // ④ Desktop 기타 브라우저 fallback
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -488,9 +512,9 @@ export function DutchPayPage() {
   const amountSpecifiedSum =
     form.splitType === 'AMOUNT'
       ? checkedMembers.reduce((s, m) => {
-          const val = (form.participants[m.id]?.value ?? '').trim();
-          return s + (val ? parseFloat(val) || 0 : 0);
-        }, 0)
+        const val = (form.participants[m.id]?.value ?? '').trim();
+        return s + (val ? parseFloat(val) || 0 : 0);
+      }, 0)
       : 0;
   const amountBlankCount =
     form.splitType === 'AMOUNT'
@@ -511,9 +535,9 @@ export function DutchPayPage() {
   const weightTotal =
     form.splitType === 'WEIGHT'
       ? checkedMembers.reduce(
-          (s, m) => s + (parseFloat(form.participants[m.id]?.value) || 1),
-          0,
-        )
+        (s, m) => s + (parseFloat(form.participants[m.id]?.value) || 1),
+        0,
+      )
       : 0;
   const getWeightedAmount = (memberId: string) =>
     weightTotal > 0
@@ -1412,10 +1436,10 @@ export function DutchPayPage() {
                         // AMOUNT: 빈칸일 때 placeholder에 자동 계산값 표시
                         const amountPlaceholder =
                           form.splitType === 'AMOUNT' &&
-                          isBlank &&
-                          amountBlankCount > 0 &&
-                          amountRemainder >= 0 &&
-                          totalAmount > 0
+                            isBlank &&
+                            amountBlankCount > 0 &&
+                            amountRemainder >= 0 &&
+                            totalAmount > 0
                             ? `≈ ${Math.round(amountRemainderPerPerson).toLocaleString()} (자동)`
                             : form.splitType === 'AMOUNT'
                               ? '금액 입력'

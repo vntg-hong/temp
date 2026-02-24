@@ -11,8 +11,11 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.1.0",
+    "@capacitor/camera": "^8.0.1",
     "@capacitor/cli": "^7.5.0",
     "@capacitor/core": "^8.1.0",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/share": "^8.0.1",
     "@phosphor-icons/react": "^2.1.10",
     "@tailwindcss/typography": "^0.5.19",
     "axios": "^1.13.2",

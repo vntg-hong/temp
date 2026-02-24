@@ -73,7 +73,7 @@ cd client
 
 npm run build
 
-npx cap copy (또는 npx cap sync)
+npx cap sync
 
 이유: React 코드를 빌드하고 안드로이드 폴더로 복사하는 기능은 웹 개발 환경인 VS Code가 더 빠르고 편하기 때문입니다.
 
