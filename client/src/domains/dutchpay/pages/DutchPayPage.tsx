@@ -378,9 +378,24 @@ export function DutchPayPage() {
     const json = JSON.stringify({ members, expenses, initialBudget }, null, 2);
     const filename = `dutch-pay-${new Date().toISOString().slice(0, 10)}.json`;
     const blob = new Blob([json], { type: 'application/json' });
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-    // ① File System Access API (Android Chrome / Desktop Chrome·Edge)
-    //    showSaveFilePicker 가 저장 위치 선택(= 권한 부여) 다이얼로그를 띄움
+    // ① iOS 전용: navigator.share — iOS는 anchor download가 불안정하므로 share sheet 사용
+    if (isIOS) {
+      if (typeof navigator.share === 'function') {
+        const file = new File([blob], filename, { type: 'application/json' });
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file], title: '정산 데이터' }).catch(() => {});
+          return;
+        }
+      }
+      // share 불가능한 iOS는 blob URL을 새 탭으로 열기
+      window.open(URL.createObjectURL(blob), '_blank');
+      return;
+    }
+
+    // ② Desktop Chrome·Edge: showSaveFilePicker로 저장 위치 직접 선택
+    //    (Android Chrome은 showSaveFilePicker 미지원 → ③으로 진행)
     if ('showSaveFilePicker' in window) {
       try {
         const handle = await (
@@ -396,21 +411,11 @@ export function DutchPayPage() {
         await writable.close();
         return;
       } catch (err) {
-        if ((err as DOMException).name === 'AbortError') return; // 사용자가 취소
-        // 그 외 오류는 아래 fallback으로
+        if ((err as DOMException).name === 'AbortError') return; // 사용자 취소
       }
     }
 
-    // ② iOS Safari: Web Share API로 파일 공유 (Files 앱에 저장 가능)
-    if (typeof navigator.share === 'function') {
-      const file = new File([blob], filename, { type: 'application/json' });
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: '정산 데이터' }).catch(() => {});
-        return;
-      }
-    }
-
-    // ③ 최종 fallback: 앵커를 DOM에 붙인 후 클릭 (기타 데스크탑 브라우저)
+    // ③ Android Chrome + 기타 브라우저: anchor download → Downloads 폴더에 바로 저장
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -418,7 +423,7 @@ export function DutchPayPage() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   /* ── JSON 가져오기 ── */
