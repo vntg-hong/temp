@@ -391,27 +391,53 @@ export function DutchPayPage() {
     try {
       // 0. Capacitor Native Platform (Android/iOS App)
       if (Capacitor.isNativePlatform()) {
-        try {
-          // UTF8 인코딩을 사용하여 직접 저장 (한글 깨짐 없음)
-          const result = await Filesystem.writeFile({
-            path: filename,
+        if (isAndroid) {
+          // Android: 저장소 권한 확인 및 요청 후 Downloads 폴더에 직접 저장
+          const perm = await Filesystem.checkPermissions();
+          if (perm.publicStorage !== 'granted') {
+            const req = await Filesystem.requestPermissions();
+            if (req.publicStorage !== 'granted') {
+              // 권한 거부 시 공유 시트 fallback
+              const result = await Filesystem.writeFile({
+                path: filename,
+                data: json,
+                directory: Directory.Cache,
+                encoding: Encoding.UTF8,
+              });
+              await Share.share({
+                title: '정산 데이터 내보내기',
+                files: [result.uri],
+                dialogTitle: '데이터 저장 및 공유',
+              });
+              setExportStatus('done');
+              return;
+            }
+          }
+
+          // 권한 승인: ExternalStorage의 Download 폴더에 직접 저장
+          await Filesystem.writeFile({
+            path: `Download/${filename}`,
             data: json,
-            directory: Directory.Cache, // 공유를 위해 캐시 디렉토리 사용
+            directory: Directory.ExternalStorage,
             encoding: Encoding.UTF8,
           });
-
-          // 파일 공유 시트 열기
-          await Share.share({
-            title: '정산 데이터 내보내기',
-            files: [result.uri],
-            dialogTitle: '데이터 저장 및 공유',
-          });
-
           setExportStatus('done');
-        } catch (err) {
-          console.error('Native export error:', err);
-          setExportStatus('error');
+          return;
         }
+
+        // iOS Native: Cache에 저장 후 share sheet (Files 앱에 저장 가능)
+        const result = await Filesystem.writeFile({
+          path: filename,
+          data: json,
+          directory: Directory.Cache,
+          encoding: Encoding.UTF8,
+        });
+        await Share.share({
+          title: '정산 데이터 내보내기',
+          files: [result.uri],
+          dialogTitle: '데이터 저장 및 공유',
+        });
+        setExportStatus('done');
         return;
       }
 
