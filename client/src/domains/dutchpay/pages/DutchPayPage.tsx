@@ -728,6 +728,101 @@ export function DutchPayPage() {
                 </div>
               )}
 
+              {/* 지출별 분담 내역 */}
+              {expenses.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                    지출별 분담 내역
+                  </p>
+                  <div className="space-y-2">
+                    {expenses.map((e) => {
+                      const totalKRW = e.amount * e.exchangeRate;
+                      const shares: { memberId: string; amount: number }[] = (() => {
+                        if (e.splitType === 'AMOUNT')
+                          return e.participants.map((p) => ({
+                            memberId: p.memberId,
+                            amount: (p.amount ?? 0) * e.exchangeRate,
+                          }));
+                        if (e.splitType === 'WEIGHT') {
+                          const tw = e.participants.reduce((s, p) => s + (p.weight ?? 1), 0);
+                          return e.participants.map((p) => ({
+                            memberId: p.memberId,
+                            amount: tw > 0 ? totalKRW * ((p.weight ?? 1) / tw) : 0,
+                          }));
+                        }
+                        // EQUAL
+                        const share =
+                          e.participants.length > 0 ? totalKRW / e.participants.length : 0;
+                        return e.participants.map((p) => ({ memberId: p.memberId, amount: share }));
+                      })();
+
+                      return (
+                        <div
+                          key={e.id}
+                          className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3"
+                        >
+                          {/* 지출 헤더 */}
+                          <div className="flex items-center justify-between mb-2.5">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-slate-900 truncate">{e.title}</p>
+                              <p className="text-[11px] text-slate-400 mt-0.5">
+                                결제:{' '}
+                                <span className="font-semibold text-slate-600">
+                                  {memberName(e.payerId)}
+                                </span>
+                                {' '}·{' '}{SPLIT_LABELS[e.splitType]}
+                              </p>
+                            </div>
+                            <p className="text-sm font-bold text-slate-900 flex-shrink-0 ml-2 tabular-nums">
+                              {fmtKRW(totalKRW)}
+                            </p>
+                          </div>
+
+                          {/* 참여자별 분담 */}
+                          <div className="space-y-1.5">
+                            {shares.map(({ memberId, amount }) => {
+                              const isPayer = memberId === e.payerId;
+                              return (
+                                <div key={memberId} className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5">
+                                    <div
+                                      className={[
+                                        'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0',
+                                        isPayer
+                                          ? 'bg-slate-900 text-white'
+                                          : 'bg-slate-200 text-slate-600',
+                                      ].join(' ')}
+                                    >
+                                      {memberName(memberId)[0]}
+                                    </div>
+                                    <span className="text-xs text-slate-700 font-medium">
+                                      {memberName(memberId)}
+                                    </span>
+                                    {isPayer && (
+                                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                                        결제
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span
+                                    className={[
+                                      'text-xs font-bold tabular-nums',
+                                      isPayer ? 'text-slate-900' : 'text-slate-600',
+                                    ].join(' ')}
+                                  >
+                                    {fmtKRW(amount)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* 결과 카드 */}
               {settlementResults.length === 0 && expenses.length > 0 ? (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-6 text-center">
