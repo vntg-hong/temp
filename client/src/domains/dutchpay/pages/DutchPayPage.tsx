@@ -392,17 +392,13 @@ export function DutchPayPage() {
       // 0. Capacitor Native Platform (Android/iOS App)
       if (Capacitor.isNativePlatform()) {
         if (isAndroid) {
-          // Android: Cache에 저장 후 공유 시트 (Android 10+ 스코프드 스토리지 대응)
-          const result = await Filesystem.writeFile({
+          // Android: Documents 폴더에 직접 저장
+          await Filesystem.writeFile({
             path: filename,
             data: json,
-            directory: Directory.Cache,
+            directory: Directory.Documents,
             encoding: Encoding.UTF8,
-          });
-          await Share.share({
-            title: '정산 데이터 내보내기',
-            files: [result.uri],
-            dialogTitle: '데이터 저장 및 공유',
+            recursive: true,
           });
           setExportStatus('done');
           return;
