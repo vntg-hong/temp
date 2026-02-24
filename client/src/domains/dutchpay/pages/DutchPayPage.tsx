@@ -18,6 +18,7 @@ import {
   Pencil,
   Circle,
   CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { useDutchPayStore, genId } from '../store';
 import {
@@ -125,6 +126,7 @@ export function DutchPayPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(() => buildBlankForm(members));
   const [copied, setCopied] = useState(false);
+  const [exportStatus, setExportStatus] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
   const importRef = useRef<HTMLInputElement>(null);
 
   /* ── 파생 계산 ── */
@@ -380,50 +382,66 @@ export function DutchPayPage() {
     const blob = new Blob([json], { type: 'application/json' });
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-    // ① iOS 전용: navigator.share — iOS는 anchor download가 불안정하므로 share sheet 사용
-    if (isIOS) {
-      if (typeof navigator.share === 'function') {
-        const file = new File([blob], filename, { type: 'application/json' });
-        if (navigator.canShare?.({ files: [file] })) {
-          await navigator.share({ files: [file], title: '정산 데이터' }).catch(() => {});
+    setExportStatus('saving');
+    try {
+      // ① iOS 전용: navigator.share — iOS는 anchor download가 불안정하므로 share sheet 사용
+      if (isIOS) {
+        if (typeof navigator.share === 'function') {
+          const file = new File([blob], filename, { type: 'application/json' });
+          if (navigator.canShare?.({ files: [file] })) {
+            await navigator.share({ files: [file], title: '정산 데이터' });
+            setExportStatus('done');
+            return;
+          }
+        }
+        window.open(URL.createObjectURL(blob), '_blank');
+        setExportStatus('done');
+        return;
+      }
+
+      // ② showSaveFilePicker: 저장 위치를 직접 선택하는 네이티브 다이얼로그
+      //    Desktop Chrome·Edge + Android Chrome 86+ 지원
+      //    → 브라우저가 사용자에게 저장 위치 접근 권한을 명시적으로 요청
+      if ('showSaveFilePicker' in window) {
+        try {
+          const handle = await (
+            window as Window & {
+              showSaveFilePicker: (opts: object) => Promise<FileSystemFileHandle>;
+            }
+          ).showSaveFilePicker({
+            suggestedName: filename,
+            types: [{ description: 'JSON 파일', accept: { 'application/json': ['.json'] } }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          setExportStatus('done');
           return;
+        } catch (err) {
+          if ((err as DOMException).name === 'AbortError') {
+            // 사용자가 직접 취소
+            setExportStatus('idle');
+            return;
+          }
+          // NotAllowedError 등 권한 거부 → anchor download로 fallback
         }
       }
-      // share 불가능한 iOS는 blob URL을 새 탭으로 열기
-      window.open(URL.createObjectURL(blob), '_blank');
-      return;
-    }
 
-    // ② Desktop Chrome·Edge: showSaveFilePicker로 저장 위치 직접 선택
-    //    (Android Chrome은 showSaveFilePicker 미지원 → ③으로 진행)
-    if ('showSaveFilePicker' in window) {
-      try {
-        const handle = await (
-          window as Window & {
-            showSaveFilePicker: (opts: object) => Promise<FileSystemFileHandle>;
-          }
-        ).showSaveFilePicker({
-          suggestedName: filename,
-          types: [{ description: 'JSON 파일', accept: { 'application/json': ['.json'] } }],
-        });
-        const writable = await handle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-        return;
-      } catch (err) {
-        if ((err as DOMException).name === 'AbortError') return; // 사용자 취소
-      }
+      // ③ Android Chrome + 기타 브라우저: data URL anchor download → Downloads 폴더 저장
+      //    blob URL보다 data URL이 Android에서 더 안정적으로 동작
+      const dataUrl = `data:application/json;charset=utf-8,${encodeURIComponent(json)}`;
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setExportStatus('done');
+    } catch {
+      setExportStatus('error');
+    } finally {
+      setTimeout(() => setExportStatus('idle'), 3000);
     }
-
-    // ③ Android Chrome + 기타 브라우저: anchor download → Downloads 폴더에 바로 저장
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   /* ── JSON 가져오기 ── */
@@ -1090,10 +1108,23 @@ export function DutchPayPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={handleExport}
-                    disabled={members.length === 0 && expenses.length === 0}
+                    disabled={
+                      (members.length === 0 && expenses.length === 0) ||
+                      exportStatus === 'saving'
+                    }
                     className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-slate-100 text-slate-700 text-sm font-semibold rounded-xl disabled:opacity-40 active:scale-95 transition-all"
                   >
-                    <Download size={15} /> 내보내기
+                    {exportStatus === 'saving' && <Loader2 size={15} className="animate-spin" />}
+                    {exportStatus === 'done' && <Check size={15} className="text-green-600" />}
+                    {exportStatus === 'error' && <X size={15} className="text-red-500" />}
+                    {exportStatus === 'idle' && <Download size={15} />}
+                    {exportStatus === 'saving'
+                      ? '저장 중...'
+                      : exportStatus === 'done'
+                        ? '저장 완료!'
+                        : exportStatus === 'error'
+                          ? '저장 실패'
+                          : '내보내기'}
                   </button>
                   <button
                     onClick={() => importRef.current?.click()}
