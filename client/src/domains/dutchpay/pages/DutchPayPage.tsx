@@ -192,6 +192,22 @@ export function DutchPayPage() {
       participants: { ...f.participants, [id]: { ...f.participants[id], value } },
     }));
 
+  const selectAllParticipants = () =>
+    setForm((f) => ({
+      ...f,
+      participants: Object.fromEntries(
+        members.map((m) => [m.id, { ...f.participants[m.id], checked: true }]),
+      ),
+    }));
+
+  const deselectAllParticipants = () =>
+    setForm((f) => ({
+      ...f,
+      participants: Object.fromEntries(
+        members.map((m) => [m.id, { ...f.participants[m.id], checked: false }]),
+      ),
+    }));
+
   /* ── 지출 저장 ── */
   const handleSubmit = () => {
     const amount = parseFloat(form.amount);
@@ -200,8 +216,16 @@ export function DutchPayPage() {
     const checked = Object.entries(form.participants).filter(([, v]) => v.checked);
     if (checked.length === 0) return;
 
+    // AMOUNT: 빈칸 참여자는 나머지 균등 배분
+    const amtSpecified = checked
+      .filter(([, v]) => v.value.trim())
+      .reduce((s, [, v]) => s + (parseFloat(v.value) || 0), 0);
+    const amtBlankCnt = checked.filter(([, v]) => !v.value.trim()).length;
+    const amtRemainder = amtBlankCnt > 0 ? (amount - amtSpecified) / amtBlankCnt : 0;
+
     const participants = checked.map(([memberId, v]) => {
-      if (form.splitType === 'AMOUNT') return { memberId, amount: parseFloat(v.value) || 0 };
+      if (form.splitType === 'AMOUNT')
+        return { memberId, amount: v.value.trim() ? parseFloat(v.value) || 0 : amtRemainder };
       if (form.splitType === 'WEIGHT') return { memberId, weight: parseFloat(v.value) || 1 };
       return { memberId };
     });
@@ -244,9 +268,9 @@ export function DutchPayPage() {
     const statLines = memberStats.map((s) => {
       const netTag =
         s.net > 0.5
-          ? `+${fmtKRW(s.net)} 받음`
+          ? `총 ${fmtKRW(s.net)} 입금예정`
           : s.net < -0.5
-            ? `${fmtKRW(Math.abs(s.net))} 보냄`
+            ? `${fmtKRW(Math.abs(s.net))} 송금 필요`
             : '정산 완료';
       return `• ${s.name}: 결제 ${fmtKRW(s.paid)} | 부담 ${fmtKRW(s.owed)} → ${netTag}`;
     });
@@ -321,17 +345,45 @@ export function DutchPayPage() {
     e.target.value = '';
   };
 
-  /* ── AMOUNT 합계 검증 ── */
-  const amountSum =
+  /* ── AMOUNT / WEIGHT 파생 계산 ── */
+  const totalAmount = parseFloat(form.amount || '0');
+  const checkedMembers = members.filter((m) => form.participants[m.id]?.checked);
+
+  // AMOUNT: 값 입력된 참여자 합계, 빈칸 참여자 수, 나머지 1인분
+  const amountSpecifiedSum =
     form.splitType === 'AMOUNT'
-      ? Object.entries(form.participants)
-          .filter(([, v]) => v.checked)
-          .reduce((s, [, v]) => s + (parseFloat(v.value) || 0), 0)
+      ? checkedMembers.reduce((s, m) => {
+          const val = (form.participants[m.id]?.value ?? '').trim();
+          return s + (val ? parseFloat(val) || 0 : 0);
+        }, 0)
       : 0;
+  const amountBlankCount =
+    form.splitType === 'AMOUNT'
+      ? checkedMembers.filter((m) => !(form.participants[m.id]?.value ?? '').trim()).length
+      : 0;
+  const amountRemainder = totalAmount - amountSpecifiedSum;
+  const amountRemainderPerPerson = amountBlankCount > 0 ? amountRemainder / amountBlankCount : 0;
+
+  // 저장 불가 조건: 지정 합계가 총액 초과 OR (모두 지정인데 합계 불일치)
   const amountMismatch =
     form.splitType === 'AMOUNT' &&
     !!form.amount &&
-    Math.abs(amountSum - parseFloat(form.amount || '0')) > 0.01;
+    totalAmount > 0 &&
+    (amountSpecifiedSum > totalAmount + 0.01 ||
+      (amountBlankCount === 0 && Math.abs(amountSpecifiedSum - totalAmount) > 0.01));
+
+  // WEIGHT: 각자 부담 금액 계산
+  const weightTotal =
+    form.splitType === 'WEIGHT'
+      ? checkedMembers.reduce(
+          (s, m) => s + (parseFloat(form.participants[m.id]?.value) || 1),
+          0,
+        )
+      : 0;
+  const getWeightedAmount = (memberId: string) =>
+    weightTotal > 0
+      ? totalAmount * ((parseFloat(form.participants[memberId]?.value) || 1) / weightTotal)
+      : 0;
 
   /* ═══════════════════════════════════════════════════════════════════ */
   return (
@@ -941,9 +993,28 @@ export function DutchPayPage() {
 
                 {/* 참여자 */}
                 <div>
-                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                    참여자 ({checkedCount}명 선택)
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      참여자 ({checkedCount}명 선택)
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={selectAllParticipants}
+                        className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 px-1.5 py-0.5 rounded hover:bg-indigo-50 transition-colors"
+                      >
+                        전체 선택
+                      </button>
+                      <span className="text-slate-300 text-xs">|</span>
+                      <button
+                        type="button"
+                        onClick={deselectAllParticipants}
+                        className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 px-1.5 py-0.5 rounded hover:bg-slate-100 transition-colors"
+                      >
+                        전체 해제
+                      </button>
+                    </div>
+                  </div>
                   <div className="mt-1.5 flex flex-wrap gap-2">
                     {members.map((m) => {
                       const p = form.participants[m.id];
@@ -997,17 +1068,29 @@ export function DutchPayPage() {
                 {(form.splitType === 'AMOUNT' || form.splitType === 'WEIGHT') && (
                   <div>
                     <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                      {form.splitType === 'AMOUNT' ? '개별 부담 금액' : '비중'}
+                      {form.splitType === 'AMOUNT' ? '개별 부담 금액' : '비중 (숫자)'}
                     </label>
                     <div className="mt-1.5 space-y-2">
-                      {members
-                        .filter((m) => form.participants[m.id]?.checked)
-                        .map((m) => (
+                      {checkedMembers.map((m) => {
+                        const isBlank = !(form.participants[m.id]?.value ?? '').trim();
+                        // AMOUNT: 빈칸일 때 placeholder에 자동 계산값 표시
+                        const amountPlaceholder =
+                          form.splitType === 'AMOUNT' &&
+                          isBlank &&
+                          amountBlankCount > 0 &&
+                          amountRemainder >= 0 &&
+                          totalAmount > 0
+                            ? `≈ ${Math.round(amountRemainderPerPerson).toLocaleString()} (자동)`
+                            : form.splitType === 'AMOUNT'
+                              ? '금액 입력'
+                              : '비중 (기본 1)';
+
+                        return (
                           <div key={m.id} className="flex items-center gap-2">
                             <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-xs font-bold text-slate-700 flex-shrink-0">
                               {m.name[0]}
                             </div>
-                            <span className="w-14 text-xs font-semibold text-slate-700 truncate">
+                            <span className="w-12 text-xs font-semibold text-slate-700 truncate flex-shrink-0">
                               {m.name}
                             </span>
                             <input
@@ -1015,22 +1098,57 @@ export function DutchPayPage() {
                               inputMode="decimal"
                               value={form.participants[m.id]?.value ?? ''}
                               onChange={(e) => setParticipantValue(m.id, e.target.value)}
-                              placeholder={form.splitType === 'AMOUNT' ? '금액' : '비중'}
-                              className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-right font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder:text-slate-300"
+                              placeholder={amountPlaceholder}
+                              className="flex-1 min-w-0 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-right font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder:text-slate-300 placeholder:text-xs"
                             />
+                            {/* AMOUNT: 통화 단위 */}
                             {form.splitType === 'AMOUNT' && (
-                              <span className="text-xs text-slate-500 w-8 text-center">
+                              <span className="text-xs text-slate-400 w-8 text-center flex-shrink-0">
                                 {form.currency}
                               </span>
                             )}
+                            {/* WEIGHT: 계산된 금액 표시 */}
+                            {form.splitType === 'WEIGHT' && totalAmount > 0 && (
+                              <span className="text-[11px] text-indigo-500 font-semibold w-20 text-right flex-shrink-0 tabular-nums">
+                                ≈ {fmtKRW(getWeightedAmount(m.id))}
+                              </span>
+                            )}
                           </div>
-                        ))}
+                        );
+                      })}
                     </div>
-                    {/* AMOUNT 합계 불일치 경고 */}
-                    {amountMismatch && (
+
+                    {/* AMOUNT: 나머지 균등 안내 */}
+                    {form.splitType === 'AMOUNT' && amountBlankCount > 0 && totalAmount > 0 && (
+                      amountRemainder >= 0 ? (
+                        <div className="mt-2 flex items-center gap-1.5 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2">
+                          <span className="text-indigo-400 text-xs">÷</span>
+                          <p className="text-[11px] text-indigo-600">
+                            나머지{' '}
+                            <span className="font-bold">
+                              {fmtKRW(amountRemainder)}
+                            </span>
+                            {' '}÷ {amountBlankCount}명 ={' '}
+                            <span className="font-bold">
+                              {fmtKRW(amountRemainderPerPerson)}
+                            </span>
+                            /인 자동 배분
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-red-500 mt-1.5">
+                          ⚠ 지정 금액 합계가 총 금액을 초과했습니다
+                        </p>
+                      )
+                    )}
+
+                    {/* AMOUNT: 모두 입력했는데 합계 불일치 */}
+                    {amountMismatch && amountBlankCount === 0 && (
                       <p className="text-xs text-red-500 mt-1.5">
-                        ⚠ 개별 금액 합계({(CURRENCY_SYMBOLS[form.currency] ?? '') + amountSum.toLocaleString()})가
-                        총 금액과 다릅니다
+                        ⚠ 개별 금액 합계(
+                        {(CURRENCY_SYMBOLS[form.currency] ?? '') +
+                          amountSpecifiedSum.toLocaleString()}
+                        )가 총 금액과 다릅니다
                       </p>
                     )}
                   </div>
@@ -1051,7 +1169,8 @@ export function DutchPayPage() {
                     !form.title.trim() ||
                     !parseFloat(form.amount) ||
                     !form.payerId ||
-                    checkedCount === 0
+                    checkedCount === 0 ||
+                    amountMismatch
                   }
                   className="flex-1 py-3 bg-slate-900 text-white text-sm font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all"
                 >
