@@ -379,7 +379,29 @@ export function DutchPayPage() {
     const filename = `dutch-pay-${new Date().toISOString().slice(0, 10)}.json`;
     const blob = new Blob([json], { type: 'application/json' });
 
-    // 모바일(iOS 포함): Web Share API로 파일 공유
+    // ① File System Access API (Android Chrome / Desktop Chrome·Edge)
+    //    showSaveFilePicker 가 저장 위치 선택(= 권한 부여) 다이얼로그를 띄움
+    if ('showSaveFilePicker' in window) {
+      try {
+        const handle = await (
+          window as Window & {
+            showSaveFilePicker: (opts: object) => Promise<FileSystemFileHandle>;
+          }
+        ).showSaveFilePicker({
+          suggestedName: filename,
+          types: [{ description: 'JSON 파일', accept: { 'application/json': ['.json'] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        return;
+      } catch (err) {
+        if ((err as DOMException).name === 'AbortError') return; // 사용자가 취소
+        // 그 외 오류는 아래 fallback으로
+      }
+    }
+
+    // ② iOS Safari: Web Share API로 파일 공유 (Files 앱에 저장 가능)
     if (typeof navigator.share === 'function') {
       const file = new File([blob], filename, { type: 'application/json' });
       if (navigator.canShare?.({ files: [file] })) {
@@ -388,7 +410,7 @@ export function DutchPayPage() {
       }
     }
 
-    // 데스크탑 fallback: 앵커를 DOM에 붙인 후 클릭
+    // ③ 최종 fallback: 앵커를 DOM에 붙인 후 클릭 (기타 데스크탑 브라우저)
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
