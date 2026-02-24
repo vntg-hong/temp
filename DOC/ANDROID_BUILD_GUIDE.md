@@ -69,6 +69,7 @@
 웹 환경(React)을 안드로이드가 알아들을 수 있는 파일로 변환하는 과정입니다.
 
 명령어:
+cd client
 
 npm run build
 
@@ -85,6 +86,9 @@ npx cap copy (또는 npx cap sync)
 
 Generate App Bundle(s) / APK(s)... 클릭 후 Build APK(s) 실행
 
+**파일 확인**:
+   - 빌드가 완료되면 오른쪽 하단에 `Build APK(s): APK(s) generated successfully` 팝업이 뜹니다.
+   - 여기서 `locate` 글자를 클릭하면 생성된 `app-debug.apk` 파일 위치가 열립니다.
 ---
 
 ## 💡 팁
