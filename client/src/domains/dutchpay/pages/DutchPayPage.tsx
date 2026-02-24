@@ -251,28 +251,36 @@ export function DutchPayPage() {
       return `• ${s.name}: 결제 ${fmtKRW(s.paid)} | 부담 ${fmtKRW(s.owed)} → ${netTag}`;
     });
 
+    const CIRCLE_NUMS = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
+    const settlementLines = settlementResults.length
+      ? settlementResults.map(
+          (r, i) =>
+            `${CIRCLE_NUMS[i] ?? `${i + 1}.`}  ${r.from}  →  ${r.to}  :  ${fmtKRW(r.amount)}`,
+        )
+      : ['✅ 추가 송금 없음'];
+
     const lines = [
       '🧮 여행/모임 정산 결과',
       '',
       `💰 총 지출: ${fmtKRW(totalKRW)}`,
       '',
       `📋 지출 내역 (${expenses.length}건)`,
-      '━━━━━━━━━━━━━━',
+      '─────────────────',
       ...expenseLines,
-      '━━━━━━━━━━━━━━',
+      '─────────────────',
       '',
       '👤 개인별 사용 내역',
-      '━━━━━━━━━━━━━━',
+      '─────────────────',
       ...statLines,
-      '━━━━━━━━━━━━━━',
+      '─────────────────',
       '',
-      '📌 정산 내역',
-      '━━━━━━━━━━━━━━',
-      ...(settlementResults.length
-        ? settlementResults.map((r) => `👉 ${r.from} → ${r.to}: ${fmtKRW(r.amount)}`)
-        : ['✅ 추가 송금 없음']),
-      '━━━━━━━━━━━━━━',
+      '══════════════════════',
+      `💸 최종 송금 내역 (${settlementResults.length}건)`,
+      '══════════════════════',
+      ...settlementLines,
+      '══════════════════════',
       '',
+      '👆 위 금액 확인 후 송금해주세요!',
       `✅ 총 ${settlementResults.length}건의 송금으로 정산 완료!`,
     ];
     await navigator.clipboard.writeText(lines.join('\n'));
