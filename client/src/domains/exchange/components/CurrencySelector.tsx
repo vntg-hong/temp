@@ -93,7 +93,7 @@ export function CurrencySelector({ isOpen, mode, targetId, onClose }: CurrencySe
         </div>
 
         {/* Currency List */}
-        <div className="overflow-y-auto flex-1 pb-safe">
+        <div className="overflow-y-auto flex-1" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 1rem)' }}>
           {filtered.length === 0 && (
             <p className="text-center text-slate-400 text-sm py-8">검색 결과가 없습니다</p>
           )}
