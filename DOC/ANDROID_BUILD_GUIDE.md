@@ -69,11 +69,16 @@
 웹 환경(React)을 안드로이드가 알아들을 수 있는 파일로 변환하는 과정입니다.
 
 명령어:
+# 1. 프로젝트 루트로 이동
 cd client
 
+# 2. 웹 앱 빌드 (dist/ 생성)
 npm run build
 
-npx cap sync
+# 3. dist/ 를 Android 프로젝트에 동기화 + 플러그인 업데이트
+- npx cap sync android
+OR 
+- npx cap sync
 
 이유: React 코드를 빌드하고 안드로이드 폴더로 복사하는 기능은 웹 개발 환경인 VS Code가 더 빠르고 편하기 때문입니다.
 
