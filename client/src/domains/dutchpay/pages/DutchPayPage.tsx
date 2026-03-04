@@ -25,6 +25,8 @@ import {
   Loader2,
   Share2,
   Lock,
+  History,
+  ExternalLink,
 } from 'lucide-react';
 import { useDutchPayStore, genId } from '../store';
 import { dutchpayApi } from '../api';
@@ -143,6 +145,9 @@ export function DutchPayPage() {
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isRoomListOpen, setIsRoomListOpen] = useState(false);
+  const [roomIdInput, setRoomIdInput] = useState('');
+  const [visitedGroups, setVisitedGroups] = useState<Array<{ id: string; title: string; visitedAt: string }>>([]);
   const [activeTab, setActiveTab] = useState<DutchPayTab>('members');
   const [memberInput, setMemberInput] = useState('');
   const [budgetInput, setBudgetInput] = useState(initialBudget ? String(initialBudget) : '');
@@ -546,13 +551,19 @@ export function DutchPayPage() {
         setBudgetInput(data.budget ? String(data.budget) : '');
         setIsLocked(data.is_locked);
         // 방문 기록 저장 (최근 정산 대시보드용)
-        const visited: string[] = JSON.parse(localStorage.getItem('visited-groups') ?? '[]');
-        if (!visited.includes(uuid)) {
-          localStorage.setItem(
-            'visited-groups',
-            JSON.stringify([uuid, ...visited].slice(0, 20)),
-          );
-        }
+        const visited: Array<{ id: string; title: string; visitedAt: string }> = (() => {
+          try {
+            const raw = JSON.parse(localStorage.getItem('visited-groups') ?? '[]');
+            // 구형 string[] 포맷 마이그레이션
+            if (raw.length > 0 && typeof raw[0] === 'string') {
+              return raw.map((id: string) => ({ id, title: '정산', visitedAt: new Date().toISOString() }));
+            }
+            return raw;
+          } catch { return []; }
+        })();
+        const filtered = visited.filter((v) => v.id !== uuid);
+        const updated = [{ id: uuid, title: data.title, visitedAt: new Date().toISOString() }, ...filtered].slice(0, 20);
+        localStorage.setItem('visited-groups', JSON.stringify(updated));
         // 최초 로드 스냅샷 설정 (이후 sync가 바로 트리거되지 않도록)
         loadedSnapRef.current = JSON.stringify({
           members: data.members,
@@ -622,6 +633,30 @@ export function DutchPayPage() {
     } finally {
       setIsCreatingShare(false);
     }
+  };
+
+  /* ── 방 목록 열기 — localStorage에서 최신 데이터 로드 ── */
+  const openRoomList = () => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('visited-groups') ?? '[]');
+      if (raw.length > 0 && typeof raw[0] === 'string') {
+        setVisitedGroups(raw.map((id: string) => ({ id, title: '정산', visitedAt: '' })));
+      } else {
+        setVisitedGroups(raw);
+      }
+    } catch {
+      setVisitedGroups([]);
+    }
+    setIsRoomListOpen(true);
+  };
+
+  /* ── 방 ID로 이동 ── */
+  const handleGoToRoom = (id: string) => {
+    const trimmed = id.trim();
+    if (!trimmed) return;
+    setIsRoomListOpen(false);
+    setRoomIdInput('');
+    navigate(`/dutch-pay/${trimmed}`);
   };
 
   /* ── 잠금 비밀번호 검증 ── */
@@ -719,28 +754,15 @@ export function DutchPayPage() {
         )}
         {/* ────────── 헤더 ────────── */}
         <header className="h-14 flex items-center justify-between px-4 bg-white border-b border-slate-100 flex-shrink-0">
-          <Link
-            to="/"
-            className="p-2 -ml-2 text-slate-600 hover:text-slate-900 active:bg-slate-100 rounded-lg transition-colors"
-            aria-label="뒤로가기"
-          >
-            <ArrowLeft size={20} />
-          </Link>
-          <h1 className="text-base font-semibold text-slate-900">여행/모임 정산</h1>
-          <div className="flex items-center gap-0.5">
-            {/* 동기화 상태 인디케이터 */}
-            {uuid && (
-              <span className="mr-1">
-                {isSyncing ? (
-                  <Loader2 size={12} className="animate-spin text-indigo-400" />
-                ) : syncError ? (
-                  <span className="w-2 h-2 rounded-full bg-rose-400 inline-block" />
-                ) : (
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
-                )}
-              </span>
-            )}
-            {/* 공유 버튼 */}
+          {/* 좌측: 뒤로가기 + URL 복사/공유 */}
+          <div className="flex items-center gap-0.5 -ml-2">
+            <Link
+              to="/"
+              className="p-2 text-slate-600 hover:text-slate-900 active:bg-slate-100 rounded-lg transition-colors"
+              aria-label="뒤로가기"
+            >
+              <ArrowLeft size={20} />
+            </Link>
             <button
               onClick={handleShare}
               disabled={isCreatingShare}
@@ -755,6 +777,32 @@ export function DutchPayPage() {
               ) : (
                 <Share2 size={18} />
               )}
+            </button>
+          </div>
+
+          {/* 중앙: 제목 + 동기화 인디케이터 */}
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-base font-semibold text-slate-900">여행/모임 정산</h1>
+            {uuid && (
+              isSyncing ? (
+                <Loader2 size={11} className="animate-spin text-indigo-400" />
+              ) : syncError ? (
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block" />
+              ) : (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+              )
+            )}
+          </div>
+
+          {/* 우측: 방 목록 + 초기화 + 메뉴 */}
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={openRoomList}
+              className="p-2 text-slate-500 hover:text-slate-800 active:bg-slate-100 rounded-lg transition-colors"
+              aria-label="방 목록"
+              title="방 목록 / ID로 입력"
+            >
+              <History size={18} />
             </button>
             <button
               onClick={() => {
@@ -1741,6 +1789,105 @@ export function DutchPayPage() {
         onClose={() => setIsMenuOpen(false)}
         currentPath={location.pathname}
       />
+
+      {/* ────────── 방 목록 & ID 입력 바텀 시트 ────────── */}
+      {isRoomListOpen && (
+        <>
+          {/* 백드롭 */}
+          <div
+            className="fixed inset-0 z-40 bg-black/30"
+            onClick={() => setIsRoomListOpen(false)}
+          />
+          {/* 시트 */}
+          <div className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm bg-white rounded-t-3xl shadow-2xl flex flex-col"
+            style={{ maxHeight: '80vh' }}>
+            {/* 핸들 */}
+            <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+              <div className="w-10 h-1 bg-slate-200 rounded-full" />
+            </div>
+
+            {/* 헤더 */}
+            <div className="flex items-center justify-between px-5 py-3 flex-shrink-0">
+              <h2 className="text-base font-bold text-slate-900">방 목록</h2>
+              <button
+                onClick={() => setIsRoomListOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 active:bg-slate-100 rounded-lg"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 px-5 pb-8">
+              {/* ── 방 ID 직접 입력 ── */}
+              <div className="mb-5">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">방 ID로 바로가기</p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={roomIdInput}
+                    onChange={(e) => setRoomIdInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleGoToRoom(roomIdInput)}
+                    placeholder="UUID 또는 방 ID 입력"
+                    className="flex-1 min-w-0 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder:text-slate-300"
+                  />
+                  <button
+                    onClick={() => handleGoToRoom(roomIdInput)}
+                    disabled={!roomIdInput.trim()}
+                    className="px-4 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl disabled:opacity-40 active:scale-95 transition-all flex items-center gap-1.5"
+                  >
+                    <ExternalLink size={15} />
+                    이동
+                  </button>
+                </div>
+              </div>
+
+              {/* ── 최근 방 목록 ── */}
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">최근 방</p>
+                {visitedGroups.length === 0 ? (
+                  <div className="py-8 text-center text-slate-300 text-sm">
+                    방문한 방이 없습니다
+                  </div>
+                ) : (
+                  <ul className="space-y-2">
+                    {visitedGroups.map((room) => (
+                      <li key={room.id}>
+                        <button
+                          onClick={() => handleGoToRoom(room.id)}
+                          className={[
+                            'w-full flex items-center gap-3 px-4 py-3 rounded-2xl border text-left transition-all active:scale-[0.98]',
+                            room.id === uuid
+                              ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                              : 'bg-slate-50 border-slate-100 hover:bg-slate-100 text-slate-800',
+                          ].join(' ')}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate">
+                              {room.title || '정산'}
+                              {room.id === uuid && (
+                                <span className="ml-2 text-[10px] font-bold text-indigo-500 bg-indigo-100 px-1.5 py-0.5 rounded-full">현재</span>
+                              )}
+                            </p>
+                            <p className="text-[11px] text-slate-400 font-mono mt-0.5 truncate">
+                              {room.id}
+                            </p>
+                            {room.visitedAt && (
+                              <p className="text-[10px] text-slate-300 mt-0.5">
+                                {new Date(room.visitedAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            )}
+                          </div>
+                          <ExternalLink size={15} className="flex-shrink-0 text-slate-300" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
