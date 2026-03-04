@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -23,8 +23,11 @@ import {
   Circle,
   CheckCircle2,
   Loader2,
+  Share2,
+  Lock,
 } from 'lucide-react';
 import { useDutchPayStore, genId } from '../store';
+import { dutchpayApi } from '../api';
 import {
   calculateSettlement,
   getTotalExpenseKRW,
@@ -122,6 +125,23 @@ export function DutchPayPage() {
   } = useDutchPayStore();
 
   const location = useLocation();
+  const navigate = useNavigate();
+  const { uuid } = useParams<{ uuid?: string }>();
+
+  // ── 공유/동기화/잠금 상태 ──────────────────────────────────────────
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState(false);
+  const [isCreatingShare, setIsCreatingShare] = useState(false);
+  const [shareUrlCopied, setShareUrlCopied] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockVerified, setLockVerified] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  // 마지막으로 서버에서 받아온 데이터 스냅샷 (sync 중복 방지)
+  const loadedSnapRef = useRef<string | null>(null);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<DutchPayTab>('members');
   const [memberInput, setMemberInput] = useState('');
@@ -510,6 +530,114 @@ export function DutchPayPage() {
     e.target.value = '';
   };
 
+  /* ── UUID 있을 때 서버에서 초기 데이터 로드 ── */
+  useEffect(() => {
+    if (!uuid) return;
+    (async () => {
+      try {
+        setIsSyncing(true);
+        const data = await dutchpayApi.getGroup(uuid);
+        importData({
+          members: data.members,
+          expenses: data.expenses,
+          initialBudget: data.budget,
+          completedSettlements: data.completed_settlements,
+        });
+        setBudgetInput(data.budget ? String(data.budget) : '');
+        setIsLocked(data.is_locked);
+        // 방문 기록 저장 (최근 정산 대시보드용)
+        const visited: string[] = JSON.parse(localStorage.getItem('visited-groups') ?? '[]');
+        if (!visited.includes(uuid)) {
+          localStorage.setItem(
+            'visited-groups',
+            JSON.stringify([uuid, ...visited].slice(0, 20)),
+          );
+        }
+        // 최초 로드 스냅샷 설정 (이후 sync가 바로 트리거되지 않도록)
+        loadedSnapRef.current = JSON.stringify({
+          members: data.members,
+          expenses: data.expenses,
+          initialBudget: data.budget,
+          completedSettlements: data.completed_settlements,
+        });
+      } catch {
+        setSyncError(true);
+      } finally {
+        setIsSyncing(false);
+      }
+    })();
+  }, [uuid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ── 동기화 모드: 데이터 변경 시 서버에 PATCH (500ms debounce) ── */
+  useEffect(() => {
+    if (!uuid || loadedSnapRef.current === null) return;
+
+    const currentSnap = JSON.stringify({ members, expenses, initialBudget, completedSettlements });
+    if (currentSnap === loadedSnapRef.current) return; // 변경 없으면 skip
+
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(async () => {
+      try {
+        setIsSyncing(true);
+        setSyncError(false);
+        await dutchpayApi.updateGroup(uuid, {
+          budget: initialBudget,
+          members,
+          expenses,
+          completed_settlements: completedSettlements,
+        });
+        loadedSnapRef.current = currentSnap;
+      } catch {
+        setSyncError(true);
+      } finally {
+        setIsSyncing(false);
+      }
+    }, 500);
+
+    return () => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    };
+  }, [uuid, members, expenses, initialBudget, completedSettlements]);
+
+  /* ── 공유 URL 생성 or 복사 ── */
+  const handleShare = async () => {
+    if (uuid) {
+      await navigator.clipboard.writeText(`${window.location.origin}/dutch-pay/${uuid}`);
+      setShareUrlCopied(true);
+      setTimeout(() => setShareUrlCopied(false), 2000);
+      return;
+    }
+    setIsCreatingShare(true);
+    try {
+      const data = await dutchpayApi.createGroup({
+        title: '정산',
+        budget: initialBudget,
+        members,
+        expenses,
+        completed_settlements: completedSettlements,
+      });
+      navigate(`/dutch-pay/${data.id}`);
+    } catch {
+      setSyncError(true);
+    } finally {
+      setIsCreatingShare(false);
+    }
+  };
+
+  /* ── 잠금 비밀번호 검증 ── */
+  const handleVerifyPassword = async () => {
+    if (!uuid || !passwordInput.trim()) return;
+    setIsVerifying(true);
+    setPasswordError(false);
+    const ok = await dutchpayApi.verifyPassword(uuid, passwordInput);
+    setIsVerifying(false);
+    if (ok) {
+      setLockVerified(true);
+    } else {
+      setPasswordError(true);
+    }
+  };
+
   /* ── AMOUNT / WEIGHT 파생 계산 ── */
   const totalAmount = parseFloat(form.amount || '0');
   const checkedMembers = members.filter((m) => form.participants[m.id]?.checked);
@@ -554,9 +682,41 @@ export function DutchPayPage() {
   return (
     <div className="min-h-screen bg-slate-200 flex justify-center">
       <div
-        className="h-screen w-full max-w-sm bg-white flex flex-col overflow-hidden shadow-xl"
+        className="relative h-screen w-full max-w-sm bg-white flex flex-col overflow-hidden shadow-xl"
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
+        {/* ────────── 잠금 화면 ────────── */}
+        {uuid && isLocked && !lockVerified && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm px-8">
+            <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mb-5">
+              <Lock size={28} className="text-slate-500" />
+            </div>
+            <h2 className="text-lg font-bold text-slate-900 mb-1">비밀번호로 잠긴 정산</h2>
+            <p className="text-sm text-slate-400 mb-7 text-center">
+              비밀번호를 입력하면 접근할 수 있어요
+            </p>
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleVerifyPassword()}
+              placeholder="비밀번호 입력"
+              autoFocus
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl mb-3 text-center text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+            {passwordError && (
+              <p className="text-xs text-rose-500 mb-3">비밀번호가 올바르지 않습니다</p>
+            )}
+            <button
+              onClick={handleVerifyPassword}
+              disabled={isVerifying || !passwordInput.trim()}
+              className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {isVerifying && <Loader2 size={16} className="animate-spin" />}
+              확인
+            </button>
+          </div>
+        )}
         {/* ────────── 헤더 ────────── */}
         <header className="h-14 flex items-center justify-between px-4 bg-white border-b border-slate-100 flex-shrink-0">
           <Link
@@ -567,7 +727,35 @@ export function DutchPayPage() {
             <ArrowLeft size={20} />
           </Link>
           <h1 className="text-base font-semibold text-slate-900">여행/모임 정산</h1>
-          <div className="flex items-center">
+          <div className="flex items-center gap-0.5">
+            {/* 동기화 상태 인디케이터 */}
+            {uuid && (
+              <span className="mr-1">
+                {isSyncing ? (
+                  <Loader2 size={12} className="animate-spin text-indigo-400" />
+                ) : syncError ? (
+                  <span className="w-2 h-2 rounded-full bg-rose-400 inline-block" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+                )}
+              </span>
+            )}
+            {/* 공유 버튼 */}
+            <button
+              onClick={handleShare}
+              disabled={isCreatingShare}
+              className="p-2 text-indigo-500 hover:text-indigo-700 active:bg-indigo-50 rounded-lg transition-colors disabled:opacity-40"
+              aria-label="공유"
+              title={uuid ? 'URL 복사' : '공유 URL 만들기'}
+            >
+              {isCreatingShare ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : shareUrlCopied ? (
+                <Check size={18} className="text-emerald-500" />
+              ) : (
+                <Share2 size={18} />
+              )}
+            </button>
             <button
               onClick={() => {
                 if (confirm('전체 데이터를 초기화할까요?')) {
