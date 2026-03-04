@@ -27,6 +27,7 @@ import {
   Lock,
   History,
   ExternalLink,
+  PlusCircle,
 } from 'lucide-react';
 import { useDutchPayStore, genId } from '../store';
 import { dutchpayApi } from '../api';
@@ -632,6 +633,21 @@ export function DutchPayPage() {
       setSyncError(true);
     } finally {
       setIsCreatingShare(false);
+    }
+  };
+
+  /* ── 새 방 만들기 (빈 방 생성 후 이동) ── */
+  const [isCreatingNewRoom, setIsCreatingNewRoom] = useState(false);
+  const handleCreateNewRoom = async () => {
+    setIsCreatingNewRoom(true);
+    try {
+      const data = await dutchpayApi.createGroup({ title: '새 정산', budget: 0, members: [], expenses: [], completed_settlements: [] });
+      setIsRoomListOpen(false);
+      navigate(`/dutch-pay/${data.id}`);
+    } catch {
+      setSyncError(true);
+    } finally {
+      setIsCreatingNewRoom(false);
     }
   };
 
@@ -1818,6 +1834,20 @@ export function DutchPayPage() {
             </div>
 
             <div className="overflow-y-auto flex-1 px-5 pb-8">
+              {/* ── 새 방 만들기 ── */}
+              <button
+                onClick={handleCreateNewRoom}
+                disabled={isCreatingNewRoom}
+                className="w-full flex items-center justify-center gap-2 py-3.5 mb-5 bg-indigo-600 text-white font-bold rounded-2xl disabled:opacity-50 active:scale-[0.98] transition-all"
+              >
+                {isCreatingNewRoom ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <PlusCircle size={18} />
+                )}
+                새 방 만들기
+              </button>
+
               {/* ── 방 ID 직접 입력 ── */}
               <div className="mb-5">
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">방 ID로 바로가기</p>
