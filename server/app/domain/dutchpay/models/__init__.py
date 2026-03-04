@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from sqlalchemy import Boolean, Integer, Text, func
-from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMPTZ, UUID
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from server.app.core.database import Base
@@ -93,14 +93,14 @@ class SettlementGroup(Base):
 
     # 타임스탬프
     created_at: Mapped[datetime] = mapped_column(
-        TIMESTAMPTZ,
+        TIMESTAMP(timezone=True),
         nullable=False,
         server_default=func.now(),
         comment="생성 일시",
     )
 
     updated_at: Mapped[datetime] = mapped_column(
-        TIMESTAMPTZ,
+        TIMESTAMP(timezone=True),
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
@@ -109,7 +109,7 @@ class SettlementGroup(Base):
 
     # 만료 일시. NULL이면 영구 보관
     expires_at: Mapped[Optional[datetime]] = mapped_column(
-        TIMESTAMPTZ,
+        TIMESTAMP(timezone=True),
         nullable=True,
         default=None,
         comment="만료 일시 (NULL = 영구 보관)",
