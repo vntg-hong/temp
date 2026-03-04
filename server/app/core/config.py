@@ -53,7 +53,12 @@ class Settings(BaseSettings):
         description="API v1 경로 prefix"
     )
     ALLOWED_ORIGINS: list[str] = Field(
-        default=["http://localhost:3000"],
+        default=[
+            "http://localhost:3000",
+            "capacitor://localhost",  # Capacitor Android/iOS APK
+            "https://localhost",      # Capacitor iOS
+            "http://localhost",       # Capacitor HTTP fallback
+        ],
         description="CORS 허용 오리진"
     )
 
