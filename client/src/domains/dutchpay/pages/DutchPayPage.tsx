@@ -29,6 +29,7 @@ import {
   ExternalLink,
   PlusCircle,
 } from 'lucide-react';
+import { supabase } from '../../../core/supabase/client';
 import { useDutchPayStore, genId } from '../store';
 import { dutchpayApi } from '../api';
 import {
@@ -146,6 +147,7 @@ export function DutchPayPage() {
   // 마지막으로 서버에서 받아온 데이터 스냅샷 (sync 중복 방지)
   const loadedSnapRef = useRef<string | null>(null);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isRemoteUpdateRef = useRef(false);
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
@@ -587,9 +589,58 @@ export function DutchPayPage() {
     })();
   }, [uuid]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ── Supabase 실시간 구독: 다른 사용자 변경 사항 즉시 반영 ── */
+  useEffect(() => {
+    if (!uuid) return;
+
+    const channel = supabase
+      .channel(`room:${uuid}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'settlement_groups', filter: `id=eq.${uuid}` },
+        (payload) => {
+          const remote = payload.new as {
+            title: string;
+            budget: number;
+            members: unknown[];
+            expenses: unknown[];
+            completed_settlements: string[];
+            is_locked: boolean;
+          };
+          const newSnap = JSON.stringify({
+            title: remote.title,
+            members: remote.members,
+            expenses: remote.expenses,
+            initialBudget: remote.budget,
+            completedSettlements: remote.completed_settlements,
+          });
+          // 내가 보낸 변경이면 무시 (loadedSnapRef와 동일한 경우)
+          if (newSnap === loadedSnapRef.current) return;
+
+          isRemoteUpdateRef.current = true;
+          importData({
+            title: remote.title,
+            members: remote.members as import('../types').Member[],
+            expenses: remote.expenses as import('../types').Expense[],
+            initialBudget: remote.budget,
+            completedSettlements: remote.completed_settlements,
+          });
+          setIsLocked(remote.is_locked);
+          loadedSnapRef.current = newSnap;
+          isRemoteUpdateRef.current = false;
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [uuid]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /* ── 동기화 모드: 데이터 변경 시 서버에 PATCH (500ms debounce) ── */
   useEffect(() => {
     if (!uuid || loadedSnapRef.current === null) return;
+    if (isRemoteUpdateRef.current) return; // 원격 업데이트 중이면 skip
 
     const currentSnap = JSON.stringify({ title, members, expenses, initialBudget, completedSettlements });
     if (currentSnap === loadedSnapRef.current) return; // 변경 없으면 skip
@@ -1929,7 +1980,7 @@ export function DutchPayPage() {
                     방문한 방이 없습니다
                   </div>
                 ) : (
-                  <ul className="space-y-2">
+                  <ul className="space-y-2 max-h-[360px] overflow-y-auto pr-0.5">
                     {visitedGroups.map((room) => (
                       <li key={room.id}>
                         <div className={[
