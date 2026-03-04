@@ -20,7 +20,7 @@ interface DutchPayState {
   completedSettlements: string[]; // "from::to::amount" 형태의 완료 키 목록
   toggleSettlementCompleted: (key: string) => void;
   clearCompletedSettlements: () => void;
-  importData: (data: Pick<DutchPayState, 'members' | 'expenses' | 'initialBudget'>) => void;
+  importData: (data: Pick<DutchPayState, 'members' | 'expenses' | 'initialBudget' | 'completedSettlements'>) => void;
   reset: () => void;
 }
 

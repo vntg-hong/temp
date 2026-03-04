@@ -247,6 +247,7 @@ function App() {
         <Route path="/exchange" element={<ExchangePage />} />
         <Route path="/tip" element={<TipPage />} />
         <Route path="/dutch-pay" element={<DutchPayPage />} />
+        <Route path="/dutch-pay/:uuid" element={<DutchPayPage />} />
       </Routes>
     </BrowserRouter>
   );
