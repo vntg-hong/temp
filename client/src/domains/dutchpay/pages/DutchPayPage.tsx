@@ -944,17 +944,15 @@ export function DutchPayPage() {
 
           {/* 우측: 새로고침 + 방 목록 + 초기화 + 메뉴 */}
           <div className="flex items-center gap-0.5">
-            {uuid && (
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="p-2 text-slate-500 hover:text-indigo-600 active:bg-slate-100 rounded-lg transition-colors disabled:opacity-40"
-                aria-label="새로고침"
-                title="서버에서 최신 데이터 불러오기"
-              >
-                <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
-              </button>
-            )}
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing || !uuid}
+              className="p-2 text-slate-500 hover:text-indigo-600 active:bg-slate-100 rounded-lg transition-colors disabled:opacity-40"
+              aria-label="새로고침"
+              title="서버에서 최신 데이터 불러오기"
+            >
+              <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+            </button>
             <button
               onClick={openRoomList}
               className="p-2 text-slate-500 hover:text-slate-800 active:bg-slate-100 rounded-lg transition-colors"
@@ -1023,7 +1021,7 @@ export function DutchPayPage() {
           ).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
-              onClick={() => setActiveTab(key)}
+              onClick={() => { setActiveTab(key); if (key === 'settlement' && uuid) handleRefresh(); }}
               className={[
                 'flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold transition-colors border-b-2',
                 activeTab === key
@@ -1462,7 +1460,7 @@ export function DutchPayPage() {
                         )}
                         {completedCount > 0 && (
                           <button
-                            onClick={clearCompletedSettlements}
+                            onClick={async () => { await handleRefresh(); clearCompletedSettlements(); }}
                             className="text-[11px] text-slate-400 hover:text-slate-600 underline"
                           >
                             초기화
@@ -1493,7 +1491,7 @@ export function DutchPayPage() {
                           >
                             {/* 완료 체크 버튼 */}
                             <button
-                              onClick={() => toggleSettlementCompleted(key)}
+                              onClick={async () => { await handleRefresh(); toggleSettlementCompleted(key); }}
                               className="flex-shrink-0 transition-transform active:scale-90"
                               aria-label={done ? '완료 취소' : '완료 표시'}
                             >
