@@ -671,6 +671,43 @@ export function DutchPayPage() {
     };
   }, [uuid, title, members, expenses, initialBudget, completedSettlements]);
 
+  /* ── 최신 상태를 ref에 유지 (online 핸들러 스테일 클로저 방지) ── */
+  const latestStateRef = useRef({ title, members, expenses, initialBudget, completedSettlements });
+  useEffect(() => {
+    latestStateRef.current = { title, members, expenses, initialBudget, completedSettlements };
+  }, [title, members, expenses, initialBudget, completedSettlements]);
+
+  /* ── 오프라인 → 온라인 전환 시 미동기화 변경사항 자동 업로드 ── */
+  useEffect(() => {
+    if (!uuid) return;
+
+    const handleOnline = async () => {
+      const snap = JSON.stringify(latestStateRef.current);
+      if (snap === loadedSnapRef.current) return; // 변경 없으면 skip
+
+      try {
+        setIsSyncing(true);
+        setSyncError(false);
+        const { title: t, members: m, expenses: e, initialBudget: b, completedSettlements: cs } = latestStateRef.current;
+        await dutchpayApi.updateGroup(uuid, {
+          title: t,
+          budget: b,
+          members: m,
+          expenses: e,
+          completed_settlements: cs,
+        });
+        loadedSnapRef.current = snap;
+      } catch {
+        setSyncError(true);
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [uuid]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /* ── title 변경 시 visited-groups localStorage & visitedGroups 상태 즉시 갱신 ── */
   useEffect(() => {
     if (!uuid || !title) return;
