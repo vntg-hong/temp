@@ -111,6 +111,8 @@ const buildFormFromExpense = (
 /* ─────────────────────────────── 컴포넌트 ─────────────────────────── */
 export function DutchPayPage() {
   const {
+    title,
+    setTitle,
     members,
     expenses,
     initialBudget,
@@ -145,6 +147,8 @@ export function DutchPayPage() {
   const loadedSnapRef = useRef<string | null>(null);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isRoomListOpen, setIsRoomListOpen] = useState(false);
   const [roomIdInput, setRoomIdInput] = useState('');
@@ -544,6 +548,7 @@ export function DutchPayPage() {
         setIsSyncing(true);
         const data = await dutchpayApi.getGroup(uuid);
         importData({
+          title: data.title,
           members: data.members,
           expenses: data.expenses,
           initialBudget: data.budget,
@@ -567,6 +572,7 @@ export function DutchPayPage() {
         localStorage.setItem('visited-groups', JSON.stringify(updated));
         // 최초 로드 스냅샷 설정 (이후 sync가 바로 트리거되지 않도록)
         loadedSnapRef.current = JSON.stringify({
+          title: data.title,
           members: data.members,
           expenses: data.expenses,
           initialBudget: data.budget,
@@ -584,7 +590,7 @@ export function DutchPayPage() {
   useEffect(() => {
     if (!uuid || loadedSnapRef.current === null) return;
 
-    const currentSnap = JSON.stringify({ members, expenses, initialBudget, completedSettlements });
+    const currentSnap = JSON.stringify({ title, members, expenses, initialBudget, completedSettlements });
     if (currentSnap === loadedSnapRef.current) return; // 변경 없으면 skip
 
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
@@ -593,6 +599,7 @@ export function DutchPayPage() {
         setIsSyncing(true);
         setSyncError(false);
         await dutchpayApi.updateGroup(uuid, {
+          title,
           budget: initialBudget,
           members,
           expenses,
@@ -609,7 +616,7 @@ export function DutchPayPage() {
     return () => {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     };
-  }, [uuid, members, expenses, initialBudget, completedSettlements]);
+  }, [uuid, title, members, expenses, initialBudget, completedSettlements]);
 
   /* ── 공유 URL 생성 or 복사 ── */
   const handleShare = async () => {
@@ -796,16 +803,45 @@ export function DutchPayPage() {
             </button>
           </div>
 
-          {/* 중앙: 제목 + 동기화 인디케이터 */}
-          <div className="flex items-center gap-1.5">
-            <h1 className="text-base font-semibold text-slate-900">여행/모임 정산</h1>
+          {/* 중앙: 제목 (편집 가능) + 동기화 인디케이터 */}
+          <div className="flex items-center gap-1.5 min-w-0">
+            {isEditingTitle ? (
+              <input
+                autoFocus
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={() => {
+                  const next = titleDraft.trim() || title;
+                  setTitle(next);
+                  setIsEditingTitle(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const next = titleDraft.trim() || title;
+                    setTitle(next);
+                    setIsEditingTitle(false);
+                  }
+                  if (e.key === 'Escape') setIsEditingTitle(false);
+                }}
+                maxLength={30}
+                className="text-base font-semibold text-slate-900 bg-transparent border-b-2 border-indigo-400 outline-none text-center w-36 truncate"
+              />
+            ) : (
+              <button
+                onClick={() => { setTitleDraft(title); setIsEditingTitle(true); }}
+                className="text-base font-semibold text-slate-900 hover:text-indigo-600 transition-colors truncate max-w-[140px]"
+                title="방 이름 변경"
+              >
+                {title || '여행/모임 정산'}
+              </button>
+            )}
             {uuid && (
               isSyncing ? (
-                <Loader2 size={11} className="animate-spin text-indigo-400" />
+                <Loader2 size={11} className="animate-spin text-indigo-400 flex-shrink-0" />
               ) : syncError ? (
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block" />
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block flex-shrink-0" />
               ) : (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block flex-shrink-0" />
               )
             )}
           </div>
@@ -1857,7 +1893,7 @@ export function DutchPayPage() {
                     value={roomIdInput}
                     onChange={(e) => setRoomIdInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleGoToRoom(roomIdInput)}
-                    placeholder="UUID 또는 방 ID 입력"
+                    placeholder="방 ID 입력"
                     className="flex-1 min-w-0 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder:text-slate-300"
                   />
                   <button

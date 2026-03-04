@@ -7,10 +7,12 @@ export function genId(): string {
 }
 
 interface DutchPayState {
+  title: string;
   members: Member[];
   expenses: Expense[];
   initialBudget: number;
 
+  setTitle: (title: string) => void;
   addMember: (name: string) => void;
   deleteMember: (id: string) => void;
   setInitialBudget: (amount: number) => void;
@@ -20,17 +22,20 @@ interface DutchPayState {
   completedSettlements: string[]; // "from::to::amount" 형태의 완료 키 목록
   toggleSettlementCompleted: (key: string) => void;
   clearCompletedSettlements: () => void;
-  importData: (data: Pick<DutchPayState, 'members' | 'expenses' | 'initialBudget' | 'completedSettlements'>) => void;
+  importData: (data: Pick<DutchPayState, 'title' | 'members' | 'expenses' | 'initialBudget' | 'completedSettlements'>) => void;
   reset: () => void;
 }
 
 export const useDutchPayStore = create<DutchPayState>()(
   persist(
     (set) => ({
+      title: '정산',
       members: [],
       expenses: [],
       initialBudget: 0,
       completedSettlements: [],
+
+      setTitle: (title) => set({ title }),
 
       addMember: (name) =>
         set((s) => ({
@@ -73,7 +78,7 @@ export const useDutchPayStore = create<DutchPayState>()(
 
       importData: (data) => set(data),
 
-      reset: () => set({ members: [], expenses: [], initialBudget: 0, completedSettlements: [] }),
+      reset: () => set({ title: '정산', members: [], expenses: [], initialBudget: 0, completedSettlements: [] }),
     }),
     { name: 'dutch-pay-storage' },
   ),
