@@ -913,7 +913,7 @@ export function DutchPayPage() {
           {/* 좌측: 뒤로가기 + URL 복사/공유 */}
           <div className="flex items-center gap-0.5 -ml-2">
             <Link
-              to="/"
+              to="/dutch-pay"
               className="p-2 text-slate-600 hover:text-slate-900 active:bg-slate-100 rounded-lg transition-colors"
               aria-label="뒤로가기"
             >

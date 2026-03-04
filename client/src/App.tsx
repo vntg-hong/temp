@@ -8,7 +8,7 @@ import { checkDatabaseConnection } from './domains/system/api';
 import { toast } from './core/utils/toast';
 import { ExchangePage } from './domains/exchange';
 import { TipPage } from './domains/tip';
-import { DutchPayPage } from './domains/dutchpay';
+import { DutchPayPage, DutchPayLobbyPage } from './domains/dutchpay';
 
 interface DocumentConfig {
   title: string;
@@ -246,7 +246,7 @@ function App() {
         <Route path="/vibe" element={<LandingPage />} />
         <Route path="/exchange" element={<ExchangePage />} />
         <Route path="/tip" element={<TipPage />} />
-        <Route path="/dutch-pay" element={<DutchPayPage />} />
+        <Route path="/dutch-pay" element={<DutchPayLobbyPage />} />
         <Route path="/dutch-pay/:uuid" element={<DutchPayPage />} />
       </Routes>
     </BrowserRouter>
