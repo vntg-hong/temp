@@ -618,6 +618,19 @@ export function DutchPayPage() {
     };
   }, [uuid, title, members, expenses, initialBudget, completedSettlements]);
 
+  /* ── title 변경 시 visited-groups localStorage & visitedGroups 상태 즉시 갱신 ── */
+  useEffect(() => {
+    if (!uuid || !title) return;
+    try {
+      const raw: Array<{ id: string; title: string; visitedAt: string }> = JSON.parse(
+        localStorage.getItem('visited-groups') ?? '[]',
+      );
+      const updated = raw.map((v) => (v.id === uuid ? { ...v, title } : v));
+      localStorage.setItem('visited-groups', JSON.stringify(updated));
+      setVisitedGroups((prev) => prev.map((v) => (v.id === uuid ? { ...v, title } : v)));
+    } catch { /* ignore */ }
+  }, [uuid, title]);
+
   /* ── 공유 URL 생성 or 복사 ── */
   const handleShare = async () => {
     if (uuid) {
