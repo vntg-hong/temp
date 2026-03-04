@@ -153,6 +153,7 @@ export function DutchPayPage() {
   const [isRoomListOpen, setIsRoomListOpen] = useState(false);
   const [roomIdInput, setRoomIdInput] = useState('');
   const [visitedGroups, setVisitedGroups] = useState<Array<{ id: string; title: string; visitedAt: string }>>([]);
+  const [copiedRoomId, setCopiedRoomId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DutchPayTab>('members');
   const [memberInput, setMemberInput] = useState('');
   const [budgetInput, setBudgetInput] = useState(initialBudget ? String(initialBudget) : '');
@@ -1931,17 +1932,18 @@ export function DutchPayPage() {
                   <ul className="space-y-2">
                     {visitedGroups.map((room) => (
                       <li key={room.id}>
-                        <button
-                          onClick={() => handleGoToRoom(room.id)}
-                          className={[
-                            'w-full flex items-center gap-3 px-4 py-3 rounded-2xl border text-left transition-all active:scale-[0.98]',
-                            room.id === uuid
-                              ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-                              : 'bg-slate-50 border-slate-100 hover:bg-slate-100 text-slate-800',
-                          ].join(' ')}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate">
+                        <div className={[
+                          'flex items-center gap-2 px-4 py-3 rounded-2xl border transition-all',
+                          room.id === uuid
+                            ? 'bg-indigo-50 border-indigo-200'
+                            : 'bg-slate-50 border-slate-100',
+                        ].join(' ')}>
+                          {/* 방 정보 + 이동 */}
+                          <button
+                            onClick={() => handleGoToRoom(room.id)}
+                            className="flex-1 min-w-0 text-left active:scale-[0.98] transition-all"
+                          >
+                            <p className={['text-sm font-semibold truncate', room.id === uuid ? 'text-indigo-700' : 'text-slate-800'].join(' ')}>
                               {room.title || '정산'}
                               {room.id === uuid && (
                                 <span className="ml-2 text-[10px] font-bold text-indigo-500 bg-indigo-100 px-1.5 py-0.5 rounded-full">현재</span>
@@ -1955,9 +1957,41 @@ export function DutchPayPage() {
                                 {new Date(room.visitedAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                               </p>
                             )}
-                          </div>
-                          <ExternalLink size={15} className="flex-shrink-0 text-slate-300" />
-                        </button>
+                          </button>
+
+                          {/* ID 복사 버튼 */}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await navigator.clipboard.writeText(room.id);
+                              setCopiedRoomId(room.id);
+                              setTimeout(() => setCopiedRoomId(null), 2000);
+                            }}
+                            className="flex-shrink-0 flex flex-col items-center gap-0.5 p-2 rounded-xl hover:bg-white active:scale-95 transition-all"
+                            title="방 ID 복사"
+                          >
+                            {copiedRoomId === room.id ? (
+                              <>
+                                <Check size={14} className="text-emerald-500" />
+                                <span className="text-[9px] text-emerald-500 font-semibold whitespace-nowrap">복사됨</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy size={14} className="text-slate-300" />
+                                <span className="text-[9px] text-slate-300 font-medium">ID복사</span>
+                              </>
+                            )}
+                          </button>
+
+                          {/* 이동 아이콘 */}
+                          <button
+                            onClick={() => handleGoToRoom(room.id)}
+                            className="flex-shrink-0 p-2 rounded-xl hover:bg-white active:scale-95 transition-all"
+                            title="방으로 이동"
+                          >
+                            <ExternalLink size={14} className={room.id === uuid ? 'text-indigo-400' : 'text-slate-300'} />
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
