@@ -17,15 +17,27 @@
 - **서버 연동 (Sync Mode)**: '공유하기' 활성화 시 작동. 모든 데이터 변경 사항이 API를 통해 PostgreSQL(또는 Supabase) DB에 실시간 반영.
 
 ### 2.2. 데이터 스키마 정의 (DB Model)
+
+> **구현 완료** — `alembic/versions/20260304_0000_create_settlement_groups.py`
+
 **테이블: `settlement_groups`**
-| 필드명 | 타입 | 설명 |
-| :--- | :--- | :--- |
-| `id` | UUID | 고유 공유 식별자 (URL에 사용) |
-| `title` | TEXT | 정산 제목 |
-| `members` | JSONB | 참여자 목록 (정적 배열: `{id, name}`) |
-| `expenses` | JSONB | 지출 내역 목록 (객체 배열) |
-| `budget` | INTEGER | 초기 예산 |
-| `created_at` | TIMESTAMPTZ | 생성 일시 |
+| 필드명 | 타입 | 기본값 | 설명 |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID | `gen_random_uuid()` | 고유 공유 식별자 (URL에 사용) |
+| `title` | TEXT | `'정산'` | 정산방 제목 |
+| `budget` | INTEGER | `0` | 초기 예산 (KRW) |
+| `members` | JSONB | `[]` | 참여자 목록 `[{id, name}]` |
+| `expenses` | JSONB | `[]` | 지출 내역 목록 `[{id, title, amount, currency, exchangeRate, payerId, splitType, date, participants}]` |
+| `completed_settlements` | JSONB | `[]` | 완료 처리된 정산 키 목록 `["from::to::amount"]` |
+| `is_locked` | BOOLEAN | `false` | 비밀번호 잠금 여부 |
+| `password_hash` | TEXT | `NULL` | bcrypt 해시 비밀번호 (NULL = 잠금 없음) |
+| `created_at` | TIMESTAMPTZ | `now()` | 생성 일시 |
+| `updated_at` | TIMESTAMPTZ | `now()` | 최종 수정 일시 (폴링 기준, 트리거 자동 갱신) |
+| `expires_at` | TIMESTAMPTZ | `NULL` | 만료 일시 (NULL = 영구 보관) |
+
+**인덱스**
+- `idx_sg_created_at` — `created_at DESC`
+- `idx_sg_expires_at` — `expires_at IS NOT NULL` (부분 인덱스)
 
 ---
 
