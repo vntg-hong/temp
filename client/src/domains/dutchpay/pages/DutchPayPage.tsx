@@ -1893,7 +1893,7 @@ export function DutchPayPage() {
                     value={roomIdInput}
                     onChange={(e) => setRoomIdInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleGoToRoom(roomIdInput)}
-                    placeholder="UUID 또는 방 ID 입력"
+                    placeholder="방 ID 입력"
                     className="flex-1 min-w-0 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 placeholder:text-slate-300"
                   />
                   <button
