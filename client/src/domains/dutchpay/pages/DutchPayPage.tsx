@@ -28,6 +28,7 @@ import {
   History,
   ExternalLink,
   PlusCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { supabase } from '../../../core/supabase/client';
 import { useDutchPayStore, genId } from '../store';
@@ -683,6 +684,36 @@ export function DutchPayPage() {
     } catch { /* ignore */ }
   }, [uuid, title]);
 
+  /* ── 수동 새로고침 ── */
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    if (!uuid || isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      const data = await dutchpayApi.getGroup(uuid);
+      importData({
+        title: data.title,
+        members: data.members,
+        expenses: data.expenses,
+        initialBudget: data.budget,
+        completedSettlements: data.completed_settlements,
+      });
+      setIsLocked(data.is_locked);
+      loadedSnapRef.current = JSON.stringify({
+        title: data.title,
+        members: data.members,
+        expenses: data.expenses,
+        initialBudget: data.budget,
+        completedSettlements: data.completed_settlements,
+      });
+      setSyncError(false);
+    } catch {
+      setSyncError(true);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   /* ── 공유 URL 생성 or 복사 ── */
   const handleShare = async () => {
     if (uuid) {
@@ -911,8 +942,19 @@ export function DutchPayPage() {
             )}
           </div>
 
-          {/* 우측: 방 목록 + 초기화 + 메뉴 */}
+          {/* 우측: 새로고침 + 방 목록 + 초기화 + 메뉴 */}
           <div className="flex items-center gap-0.5">
+            {uuid && (
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="p-2 text-slate-500 hover:text-indigo-600 active:bg-slate-100 rounded-lg transition-colors disabled:opacity-40"
+                aria-label="새로고침"
+                title="서버에서 최신 데이터 불러오기"
+              >
+                <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+              </button>
+            )}
             <button
               onClick={openRoomList}
               className="p-2 text-slate-500 hover:text-slate-800 active:bg-slate-100 rounded-lg transition-colors"
