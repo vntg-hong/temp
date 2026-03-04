@@ -35,6 +35,8 @@ from server.app.core.database import Base  # noqa: E402
 # from server.app.domain.menu.models import Menu, MenuRole
 # from server.app.domain.code.models import CodeMaster, CodeDetail
 
+from server.app.domain.dutchpay.models import SettlementGroup  # noqa: F401
+
 # Add more imports as you create new domains
 
 # Set target metadata for autogenerate support
