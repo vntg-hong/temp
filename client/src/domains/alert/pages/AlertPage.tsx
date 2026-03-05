@@ -70,7 +70,7 @@ export function AlertPage() {
     setIsSetupOpen(true);
   };
 
-  const handleSave = (data: Parameters<typeof addAlert>[0]) => {
+  const handleSave: Parameters<typeof AlertSetupSheet>[0]['onSave'] = (data) => {
     addAlert({ ...data, isActive: true, triggered: false });
   };
 
