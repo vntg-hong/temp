@@ -109,8 +109,8 @@ export function AlertCard({ alert, currentKrwRate, onToggle, onDelete }: Props) 
           >
             <span
               className={[
-                'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200',
-                alert.isActive ? 'translate-x-5' : 'translate-x-0.5',
+                'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200',
+                alert.isActive ? 'translate-x-[22px]' : 'translate-x-0',
               ].join(' ')}
             />
           </button>
