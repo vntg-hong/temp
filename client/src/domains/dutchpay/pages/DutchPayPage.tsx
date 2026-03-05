@@ -1058,7 +1058,7 @@ export function DutchPayPage() {
           ).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
-              onClick={() => { setActiveTab(key); if (key === 'settlement' && uuid) handleRefresh(); }}
+              onClick={() => { setActiveTab(key); if (uuid) handleRefresh(); }}
               className={[
                 'flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold transition-colors border-b-2',
                 activeTab === key
