@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, Bell, Plus, Menu } from 'lucide-react';
+import { ArrowLeft, Bell, Plus, Menu, FlaskConical, Check } from 'lucide-react';
 import { MenuDrawer } from '../../../core/ui/MenuDrawer';
 import { useAlertStore } from '../store';
 import { useExchangeStore } from '../../exchange/store';
@@ -19,10 +19,48 @@ async function requestNotificationPermission() {
   await LocalNotifications.requestPermissions();
 }
 
+async function scheduleTestNotification() {
+  if (Capacitor.isNativePlatform()) {
+    await LocalNotifications.requestPermissions();
+    await LocalNotifications.createChannel({
+      id: 'rate-alert',
+      name: '환율 알림',
+      importance: 4,
+      vibration: true,
+      sound: 'default',
+    });
+  }
+  await LocalNotifications.schedule({
+    notifications: [
+      {
+        id: Math.floor(Math.random() * 100000),
+        channelId: 'rate-alert',
+        title: '[환율 기회 🔔] 지금이 타이밍입니다!',
+        body: '달러(USD)가 설정하신 목표가 1,310원 아래로 내려갔습니다. (현재: 1,305원)',
+        schedule: { at: new Date(Date.now() + 10_000) },
+        smallIcon: 'ic_stat_icon_config_sample',
+        iconColor: '#1e293b',
+      },
+    ],
+  });
+}
+
 export function AlertPage() {
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSetupOpen, setIsSetupOpen] = useState(false);
+  const [testCountdown, setTestCountdown] = useState<number | null>(null);
+
+  const handleTestNotification = async () => {
+    await scheduleTestNotification();
+    setTestCountdown(10);
+    const timer = setInterval(() => {
+      setTestCountdown((prev) => {
+        if (prev === null || prev <= 1) { clearInterval(timer); return null; }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   const { alerts, addAlert, removeAlert, toggleAlert } = useAlertStore();
   const rates = useExchangeStore((s) => s.rates);
@@ -62,6 +100,26 @@ export function AlertPage() {
             <Menu size={20} />
           </button>
         </header>
+
+        {/* ── 테스트 배너 ── */}
+        <div className="flex-shrink-0 px-4 pt-3 pb-0">
+          <button
+            onClick={handleTestNotification}
+            disabled={testCountdown !== null}
+            className={[
+              'w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border text-xs font-semibold transition-all active:scale-[0.98]',
+              testCountdown !== null
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100',
+            ].join(' ')}
+          >
+            {testCountdown !== null ? (
+              <><Check size={14} />{testCountdown}초 후 테스트 알림 발송됩니다</>
+            ) : (
+              <><FlaskConical size={14} />알림 테스트 (10초 후 발송)</>
+            )}
+          </button>
+        </div>
 
         {/* ── 본문 ── */}
         <div className="flex-1 overflow-y-auto">
