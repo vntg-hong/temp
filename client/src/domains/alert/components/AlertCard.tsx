@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import type { RateAlert } from '../types';
-import { CURRENCY_MAP } from '../../exchange/constants';
+import { CURRENCY_MAP, getFlagUrl } from '../../exchange/constants';
 
 interface Props {
   alert: RateAlert;
@@ -86,7 +86,12 @@ export function AlertCard({ alert, currentKrwRate, onToggle, onDelete }: Props) 
         <div className="flex items-start justify-between gap-3">
           {/* 통화 정보 */}
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-2xl flex-shrink-0">{currency?.flag ?? '🌐'}</span>
+            <img
+              src={getFlagUrl(alert.currencyCode, 40)}
+              alt={alert.currencyCode}
+              className="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-slate-100"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = getFlagUrl('un', 40); }}
+            />
             <div className="min-w-0">
               <p className="text-sm font-bold text-slate-900">{alert.currencyCode}</p>
               <p className="text-xs text-slate-400 truncate">{currency?.nameKo ?? alert.currencyCode}</p>
@@ -98,7 +103,7 @@ export function AlertCard({ alert, currentKrwRate, onToggle, onDelete }: Props) 
             onClick={onToggle}
             className={[
               'flex-shrink-0 w-11 h-6 rounded-full relative transition-colors duration-200',
-              alert.isActive ? 'bg-slate-900' : 'bg-slate-200',
+              alert.isActive ? 'bg-blue-500' : 'bg-slate-200',
             ].join(' ')}
             aria-label={alert.isActive ? '비활성화' : '활성화'}
           >

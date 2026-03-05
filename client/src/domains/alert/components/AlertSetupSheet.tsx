@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Search, Check } from 'lucide-react';
-import { CURRENCIES } from '../../exchange/constants';
+import { CURRENCIES, getFlagUrl } from '../../exchange/constants';
 import type { AlertCondition } from '../types';
 
 interface Props {
@@ -145,7 +145,12 @@ export function AlertSetupSheet({ isOpen, onClose, onSave, rates }: Props) {
                         selectedCode === c.code ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 text-slate-800',
                       ].join(' ')}
                     >
-                      <span className="text-xl flex-shrink-0">{c.flag}</span>
+                      <img
+                      src={getFlagUrl(c.code, 40)}
+                      alt={c.code}
+                      className="w-7 h-7 rounded-full object-cover flex-shrink-0 bg-slate-100"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = getFlagUrl('un', 40); }}
+                    />
                       <div className="flex-1 text-left min-w-0">
                         <p className={['text-sm font-semibold', selectedCode === c.code ? 'text-white' : 'text-slate-900'].join(' ')}>
                           {c.code}
@@ -168,7 +173,12 @@ export function AlertSetupSheet({ isOpen, onClose, onSave, rates }: Props) {
               {/* 현재 환율 표시 */}
               {currentKrwRate !== null && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl">
-                  <span className="text-lg">{CURRENCIES.find(c => c.code === selectedCode)?.flag}</span>
+                  <img
+                    src={getFlagUrl(selectedCode, 40)}
+                    alt={selectedCode}
+                    className="w-7 h-7 rounded-full object-cover bg-slate-100"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = getFlagUrl('un', 40); }}
+                  />
                   <div>
                     <p className="text-xs text-slate-400">현재 환율</p>
                     <p className="text-sm font-bold text-slate-900">1 {selectedCode} = {fmtRate(currentKrwRate)}원</p>
