@@ -103,7 +103,7 @@ export function AlertCard({ alert, currentKrwRate, onToggle, onDelete }: Props) 
             onClick={onToggle}
             className={[
               'flex-shrink-0 w-11 h-6 rounded-full relative transition-colors duration-200',
-              alert.isActive ? 'bg-slate-900' : 'bg-slate-200',
+              alert.isActive ? 'bg-blue-500' : 'bg-slate-200',
             ].join(' ')}
             aria-label={alert.isActive ? '비활성화' : '활성화'}
           >
