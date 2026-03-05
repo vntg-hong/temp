@@ -1,4 +1,4 @@
-import { X, Calculator, Percent, SplitSquareHorizontal } from 'lucide-react';
+import { X, Calculator, Percent, SplitSquareHorizontal, Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface MenuDrawerProps {
@@ -25,6 +25,12 @@ const NAV_ITEMS = [
     label: '여행/모임 정산',
     icon: SplitSquareHorizontal,
     description: '더치페이 자동 계산',
+  },
+  {
+    path: '/alert',
+    label: '환율 알림',
+    icon: Bell,
+    description: '목표 환율 도달 시 알림',
   },
 ];
 
