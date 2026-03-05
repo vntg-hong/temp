@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { useAndroidBackButton } from './core/hooks';
 import axios from 'axios';
 import { Activity, Zap, ArrowRight, Database, FileCode, BookOpen, Layers, Layout, Code, Calculator } from 'lucide-react';
 import { LoadingOverlay } from './core/loading';
@@ -238,17 +239,24 @@ function LandingPage() {
   );
 }
 
+function AppRoutes() {
+  useAndroidBackButton();
+  return (
+    <Routes>
+      <Route path="/" element={<ExchangePage />} />
+      <Route path="/vibe" element={<LandingPage />} />
+      <Route path="/exchange" element={<ExchangePage />} />
+      <Route path="/tip" element={<TipPage />} />
+      <Route path="/dutch-pay" element={<DutchPayLobbyPage />} />
+      <Route path="/dutch-pay/:uuid" element={<DutchPayPage />} />
+    </Routes>
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<ExchangePage />} />
-        <Route path="/vibe" element={<LandingPage />} />
-        <Route path="/exchange" element={<ExchangePage />} />
-        <Route path="/tip" element={<TipPage />} />
-        <Route path="/dutch-pay" element={<DutchPayLobbyPage />} />
-        <Route path="/dutch-pay/:uuid" element={<DutchPayPage />} />
-      </Routes>
+      <AppRoutes />
     </BrowserRouter>
   );
 }
