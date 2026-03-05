@@ -11,6 +11,7 @@ function getParentPath(pathname: string): string | null {
   if (pathname === '/tip') return null;
   if (pathname === '/dutch-pay') return null;
   if (pathname.startsWith('/dutch-pay/')) return '/dutch-pay';
+  if (pathname === '/alert') return null;
   return null;
 }
 

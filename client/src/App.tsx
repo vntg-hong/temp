@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import { useAndroidBackButton } from './core/hooks';
+import { useAndroidBackButton, useRateAlertChecker } from './core/hooks';
 import axios from 'axios';
 import { Activity, Zap, ArrowRight, Database, FileCode, BookOpen, Layers, Layout, Code, Calculator } from 'lucide-react';
 import { LoadingOverlay } from './core/loading';
@@ -10,6 +10,7 @@ import { toast } from './core/utils/toast';
 import { ExchangePage } from './domains/exchange';
 import { TipPage } from './domains/tip';
 import { DutchPayPage, DutchPayLobbyPage } from './domains/dutchpay';
+import { AlertPage } from './domains/alert';
 
 interface DocumentConfig {
   title: string;
@@ -241,6 +242,7 @@ function LandingPage() {
 
 function AppRoutes() {
   useAndroidBackButton();
+  useRateAlertChecker();
   return (
     <Routes>
       <Route path="/" element={<ExchangePage />} />
@@ -249,6 +251,7 @@ function AppRoutes() {
       <Route path="/tip" element={<TipPage />} />
       <Route path="/dutch-pay" element={<DutchPayLobbyPage />} />
       <Route path="/dutch-pay/:uuid" element={<DutchPayPage />} />
+      <Route path="/alert" element={<AlertPage />} />
     </Routes>
   );
 }

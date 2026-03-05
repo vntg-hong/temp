@@ -7,3 +7,4 @@
 export { useApi } from './useApi';
 export { useDebounce } from './useDebounce';
 export { useAndroidBackButton } from './useAndroidBackButton';
+export { useRateAlertChecker } from './useRateAlertChecker';
